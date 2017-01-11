@@ -6,9 +6,6 @@ import (
 	"net"
 )
 
-type Server struct {
-}
-
 // Manager is an interface provides encapsulation of protocol of shadowsocks
 // manager. One can add a port alone with corresponding password by calling `Add()`
 // and remove a specified port with `Remove()`.
@@ -41,7 +38,7 @@ type Server struct {
 //			if err := mgr.Ping(); err != nil {
 //				break
 //			}
-//			time.Sleep(500 * time.Millisecond)
+//			time.Sleep(5 * time.Second)
 //		}
 //		close(alive)
 //	} (alive, mgr)
