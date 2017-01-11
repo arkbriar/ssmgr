@@ -1,2 +1,3 @@
 # ss-mgr
-shadowsocks manager of multiple server 
+
+shadowsocks manager of multiple servers
