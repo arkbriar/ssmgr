@@ -20,6 +20,6 @@ There are two sets of protocols, one is called manager protocol and another is p
 
 ## License
 
-Licensed under [GPL v3](License).
+Licensed under [GPL v3](LICENSE).
 
 
