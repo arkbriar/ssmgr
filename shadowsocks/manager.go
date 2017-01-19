@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"sync"
 
 	"github.com/Sirupsen/logrus"
 )
@@ -73,6 +74,8 @@ type manager struct {
 	// udp connection of remote manager, opened on Dial() and closed on
 	// Close()
 	conn net.Conn
+	// read write mutex for stats
+	statLock sync.RWMutex
 	// transfer statistics of manager
 	stat map[int]int64
 }
@@ -93,9 +96,6 @@ func (mgr *manager) Dial() error {
 	}
 	mgr.conn = conn
 	return nil
-}
-
-type addMsg struct {
 }
 
 func (mgr *manager) Add(port int, password string) error {
@@ -159,11 +159,15 @@ func (mgr *manager) SetStat(stat map[int]int64) error {
 	if err != nil {
 		return err
 	}
+	mgr.statLock.Lock()
+	defer mgr.statLock.Unlock()
 	mgr.stat = stat
 	return nil
 }
 
 func (mgr *manager) GetStat() map[int]int64 {
+	mgr.statLock.RLock()
+	defer mgr.statLock.RUnlock()
 	return mgr.stat
 }
 
@@ -188,6 +192,8 @@ func (mgr *manager) updateStat(respBytes []byte) error {
 			logrus.Errorf("Invalid stat return: %s\n", string(statJSON))
 			return err
 		}
+		mgr.statLock.Lock()
+		defer mgr.statLock.Unlock()
 		if err := copyStatJsonTo(stat, &mgr.stat); err != nil {
 			logrus.Errorln(err)
 			return err
