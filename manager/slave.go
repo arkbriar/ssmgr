@@ -10,13 +10,26 @@ import (
 )
 
 type shadowsocksService struct {
-	userId   string `json:"user_id"`
-	port     int    `json:"server_port"`
-	password string `json:"password"`
+	UserId   string `json:"user_id"`
+	Port     int32  `json:"server_port"`
+	Password string `json:"password"`
 }
 
 // slaveMeta represents the meta information required by a local slave object.
 type slaveMeta struct {
+	openedPorts map[int32]*shadowsocksService
+}
+
+func (m *slaveMeta) addPorts(srvs ...*shadowsocksService) {
+	for _, srv := range srvs {
+		m.openedPorts[srv.Port] = srv
+	}
+}
+
+func (m *slaveMeta) removePorts(srvs ...*shadowsocksService) {
+	for _, srv := range srvs {
+		delete(m.openedPorts, srv.Port)
+	}
 }
 
 // Slave provides interfaces for managing the remote slave.
@@ -27,16 +40,16 @@ type Slave interface {
 	Close() error
 	// Allocate adds services on the remote slave node.
 	// The services added is returned.
-	Allocate(srvs ...shadowsocksService) ([]shadowsocksService, error)
+	Allocate(srvs ...*shadowsocksService) ([]*shadowsocksService, error)
 	// Free removes services on the remote slave node.
 	// The services removed is returned
-	Free(srvs ...shadowsocksService) ([]shadowsocksService, error)
+	Free(srvs ...*shadowsocksService) ([]*shadowsocksService, error)
 	// ListServices gets all alive services.
-	ListServices() ([]shadowsocksService, error)
+	ListServices() ([]*shadowsocksService, error)
 	// GetStats gets the traffic statistics of all alive services.
-	GetStats() (map[int]int64, error)
+	GetStats() (map[int32]int64, error)
 	// SetStats sets the traffic statistics of all alive services.
-	SetStats(traffics map[int]int64) error
+	SetStats(traffics map[int32]int64) error
 	// Meta returns a copy of local meta object of slave.
 	Meta() slaveMeta
 }
@@ -58,6 +71,9 @@ func NewSlave(url string) Slave {
 		conn:      nil,
 		stub:      nil,
 		token:     "",
+		meta: slaveMeta{
+			openedPorts: make(map[int32]*shadowsocksService),
+		},
 	}
 }
 
@@ -82,12 +98,12 @@ func (s *slave) Close() error {
 	return conn.Close()
 }
 
-func constructProtocolServiceList(srvs ...shadowsocksService) *protocol.ServiceList {
+func constructProtocolServiceList(srvs ...*shadowsocksService) *protocol.ServiceList {
 	services := make([]*protocol.ShadowsocksService, 0, len(srvs))
 	for _, srv := range srvs {
 		services = append(services, &protocol.ShadowsocksService{
-			port:     srv.port,
-			password: srv.password,
+			Port:     srv.Port,
+			Password: srv.Password,
 		})
 	}
 	return &protocol.ServiceList{
@@ -95,58 +111,58 @@ func constructProtocolServiceList(srvs ...shadowsocksService) *protocol.ServiceL
 	}
 }
 
-func constructServiceList(srvList *protocol.ServiceList) []shadowsocksService {
-	srvs := make([]shadowsocksService, 0, len(srvList.GetServices()))
+func constructServiceList(srvList *protocol.ServiceList) []*shadowsocksService {
+	srvs := make([]*shadowsocksService, 0, len(srvList.GetServices()))
 	for _, pbsrv := range srvList.GetServices() {
-		srvs = append(srvs, shadowsocksService{
-			userId:   pbsrv.GetUserId(),
-			port:     pbsrv.GetPort(),
-			password: pbsrv.GetPassword(),
+		srvs = append(srvs, &shadowsocksService{
+			UserId:   pbsrv.GetUserId(),
+			Port:     pbsrv.GetPort(),
+			Password: pbsrv.GetPassword(),
 		})
 	}
 	return srvs
 }
 
-func compareLists(required, current *protocol.ServiceList) (diff []shadowsocksService) {
-	diff = make([]int, 0, 1)
+func compareLists(required, current *protocol.ServiceList) (diff []*shadowsocksService) {
+	diff = make([]*shadowsocksService, 0, 1)
 	for _, a := range required.GetServices() {
 		for _, b := range current.GetServices() {
 			if a.GetUserId() == b.GetUserId() && a.GetPassword() == b.GetPassword() {
 				break
 			}
 		}
-		diff = append(diff, shadowsocksService{
-			userId:   a.GetUserId(),
-			port:     -1,
-			password: a.GetPassword(),
+		diff = append(diff, &shadowsocksService{
+			UserId:   a.GetUserId(),
+			Port:     -1,
+			Password: a.GetPassword(),
 		})
 	}
 	return diff
 }
 
-func constructErrorFromDifferenceServiceList(diff []shadowsocksService) error {
+func constructErrorFromDifferenceServiceList(diff []*shadowsocksService) error {
 	if diff == nil || len(diff) == 0 {
 		return nil
 	}
 	var errMsg string
 	if len(diff) == 1 {
-		errMsg := fmt.Sprintf("There is 1 service not allocated (user: password):")
+		errMsg = fmt.Sprintf("There is 1 service not allocated (user: password):")
 	} else {
-		errMsg := fmt.Sprintf("There are %d services not allocated (user: password):")
+		errMsg = fmt.Sprintf("There are %d services not allocated (user: password):")
 	}
 	for _, srv := range diff {
-		errMsg += fmt.Sprintf("\n  %s: %s", srv.userId, srv.password)
+		errMsg += fmt.Sprintf("\n  %s: %s", srv.UserId, srv.Password)
 	}
 	return errors.New(errMsg)
 }
 
-func (s *slave) Allocate(srvs ...shadowsocksService) ([]shadowsocksService, error) {
-	serviceList := constructProtocolServiceList(srvs)
+func (s *slave) Allocate(srvs ...*shadowsocksService) ([]*shadowsocksService, error) {
+	serviceList := constructProtocolServiceList(srvs...)
 	resp, err := s.stub.Allocate(context.Background(), &protocol.AllocateRequest{
 		ServiceList: serviceList,
 	})
 	if err != nil {
-		return nil, error
+		return nil, err
 	}
 	diff := compareLists(serviceList, resp.GetServiceList())
 	allocatedList := constructServiceList(resp.GetServiceList())
@@ -156,13 +172,13 @@ func (s *slave) Allocate(srvs ...shadowsocksService) ([]shadowsocksService, erro
 	return allocatedList, nil
 }
 
-func (s *slave) Free(srvs ...shadowsocksService) ([]shadowsocksService, error) {
-	serviceList := constructProtocolServiceList(srvs)
+func (s *slave) Free(srvs ...*shadowsocksService) ([]*shadowsocksService, error) {
+	serviceList := constructProtocolServiceList(srvs...)
 	resp, err := s.stub.Free(context.Background(), &protocol.FreeRequest{
 		ServiceList: serviceList,
 	})
 	if err != nil {
-		return nil, error
+		return nil, err
 	}
 	diff := compareLists(serviceList, resp.GetServiceList())
 	freedList := constructServiceList(resp.GetServiceList())
@@ -172,18 +188,29 @@ func (s *slave) Free(srvs ...shadowsocksService) ([]shadowsocksService, error) {
 	return freedList, nil
 }
 
-func (s *slave) ListServices() ([]shadowsocksService, error) {
-
-	return nil, nil
+func (s *slave) ListServices() ([]*shadowsocksService, error) {
+	resp, err := s.stub.ListServices(context.Background(), nil)
+	if err != nil {
+		return nil, err
+	}
+	return constructServiceList(resp), nil
 }
 
-func (s *slave) GetStats() (map[int]int64, error) {
-
-	return nil, nil
+func (s *slave) GetStats() (map[int32]int64, error) {
+	resp, err := s.stub.GetStats(context.Background(), nil)
+	if err != nil {
+		return nil, err
+	}
+	return resp.GetTraffics(), nil
 }
 
-func (s *slave) SetStats(traffics map[int]int64) error {
-
+func (s *slave) SetStats(traffics map[int32]int64) error {
+	_, err := s.stub.SetStats(context.Background(), &protocol.Statistics{
+		Traffics: traffics,
+	})
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

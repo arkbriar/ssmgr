@@ -42,7 +42,7 @@ service ShadowsocksManagerSlave {
   rpc ListServices(google.protobuf.Empty) returns (ServiceList) {}
   rpc GetStats(google.protobuf.Empty) returns (Statistics) {}
   rpc GetStatsStream(google.protobuf.Empty) returns (stream Statistics) {}
-  rpc SetStat(Statistics) returns (google.protobuf.Empty) {}
+  rpc SetStats(Statistics) returns (google.protobuf.Empty) {}
 }
 
 message RegisterRequest {
