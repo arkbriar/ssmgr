@@ -83,16 +83,18 @@ type slave struct {
 	conn      *grpc.ClientConn                       // grpc client connection
 	stub      protocol.ShadowsocksManagerSlaveClient // remote slave's grpc service client
 	token     string                                 // token used to communicate with remote slave
+	ctx       context.Context                        // context for grpc communication
 	meta      slaveMeta                              // meta store meta information such as services, etc.
 	Slave
 }
 
-func NewSlave(url string) Slave {
+func NewSlave(url, token string) Slave {
 	return &slave{
 		remoteURL: url,
 		conn:      nil,
 		stub:      nil,
-		token:     "",
+		token:     token,
+		ctx:       context.WithValue(context.Background(), "TOKEN", token),
 		meta: slaveMeta{
 			openedPorts: make(map[int32]*shadowsocksService),
 		},
@@ -180,7 +182,7 @@ func constructErrorFromDifferenceServiceList(diff []*shadowsocksService) error {
 
 func (s *slave) Allocate(srvs ...*shadowsocksService) ([]*shadowsocksService, error) {
 	serviceList := constructProtocolServiceList(srvs...)
-	resp, err := s.stub.Allocate(context.Background(), &protocol.AllocateRequest{
+	resp, err := s.stub.Allocate(s.ctx, &protocol.AllocateRequest{
 		ServiceList: serviceList,
 	})
 	if err != nil {
@@ -197,7 +199,7 @@ func (s *slave) Allocate(srvs ...*shadowsocksService) ([]*shadowsocksService, er
 
 func (s *slave) Free(srvs ...*shadowsocksService) ([]*shadowsocksService, error) {
 	serviceList := constructProtocolServiceList(srvs...)
-	resp, err := s.stub.Free(context.Background(), &protocol.FreeRequest{
+	resp, err := s.stub.Free(s.ctx, &protocol.FreeRequest{
 		ServiceList: serviceList,
 	})
 	if err != nil {
@@ -213,7 +215,7 @@ func (s *slave) Free(srvs ...*shadowsocksService) ([]*shadowsocksService, error)
 }
 
 func (s *slave) ListServices() ([]*shadowsocksService, error) {
-	resp, err := s.stub.ListServices(context.Background(), nil)
+	resp, err := s.stub.ListServices(s.ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -226,7 +228,7 @@ func (s *slave) ListServices() ([]*shadowsocksService, error) {
 }
 
 func (s *slave) GetStats() (map[int32]int64, error) {
-	resp, err := s.stub.GetStats(context.Background(), nil)
+	resp, err := s.stub.GetStats(s.ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -235,7 +237,7 @@ func (s *slave) GetStats() (map[int32]int64, error) {
 }
 
 func (s *slave) SetStats(traffics map[int32]int64) error {
-	_, err := s.stub.SetStats(context.Background(), &protocol.Statistics{
+	_, err := s.stub.SetStats(s.ctx, &protocol.Statistics{
 		Traffics: traffics,
 	})
 	if err != nil {
