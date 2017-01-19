@@ -60,9 +60,9 @@ type Manager interface {
 	// Ping sends a ping
 	Ping() error
 	// SetStat sets the traffic statistics of the given port
-	SetStat(stat map[int]int64) error
+	SetStat(stat map[int32]int64) error
 	// GetStat gets the traffic statistics of all open ports
-	GetStat() map[int]int64
+	GetStat() map[int32]int64
 	// Close closes the connection
 	Close() error
 }
@@ -77,7 +77,7 @@ type manager struct {
 	// read write mutex for stats
 	statLock sync.RWMutex
 	// transfer statistics of manager
-	stat map[int]int64
+	stat map[int32]int64
 }
 
 // NewManager returns a shadowsocks manager
@@ -144,7 +144,7 @@ func (mgr *manager) Remove(port int) error {
 	return nil
 }
 
-func constructStatJson(stat map[int]int64) []byte {
+func constructStatJson(stat map[int32]int64) []byte {
 	beforeMarshal := make(map[string]int64)
 	statJSONBytes, err := json.Marshal(beforeMarshal)
 	if err != nil {
@@ -154,7 +154,7 @@ func constructStatJson(stat map[int]int64) []byte {
 	return statJSONBytes
 }
 
-func (mgr *manager) SetStat(stat map[int]int64) error {
+func (mgr *manager) SetStat(stat map[int32]int64) error {
 	_, err := mgr.conn.Write(append([]byte("stat: "), constructStatJson(stat)...))
 	if err != nil {
 		return err
@@ -165,14 +165,14 @@ func (mgr *manager) SetStat(stat map[int]int64) error {
 	return nil
 }
 
-func (mgr *manager) GetStat() map[int]int64 {
+func (mgr *manager) GetStat() map[int32]int64 {
 	mgr.statLock.RLock()
 	defer mgr.statLock.RUnlock()
 	return mgr.stat
 }
 
-func copyStatJsonTo(raw map[string]int64, dest *map[int]int64) error {
-	trueDest := make(map[int]int64)
+func copyStatJsonTo(raw map[string]int64, dest *map[int32]int64) error {
+	trueDest := make(map[int32]int64)
 	for portInString, traffic := range raw {
 		port, err := strconv.Atoi(portInString)
 		if err != nil {
