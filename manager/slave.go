@@ -1,11 +1,16 @@
 package manager
 
 import (
+	"context"
+	"errors"
+	"fmt"
+
 	"github.com/arkbriar/ss-mgr/manager/protocol"
 	"google.golang.org/grpc"
 )
 
 type shadowsocksService struct {
+	userId   string `json:"user_id"`
 	port     int    `json:"server_port"`
 	password string `json:"password"`
 }
@@ -44,6 +49,7 @@ type slave struct {
 	stub      protocol.ShadowsocksManagerSlaveClient // remote slave's grpc service client
 	token     string                                 // token used to communicate with remote slave
 	meta      slaveMeta                              // meta store meta information such as services, etc.
+	Slave
 }
 
 func NewSlave(url string) Slave {
@@ -76,13 +82,94 @@ func (s *slave) Close() error {
 	return conn.Close()
 }
 
+func constructProtocolServiceList(srvs ...shadowsocksService) *protocol.ServiceList {
+	services := make([]*protocol.ShadowsocksService, 0, len(srvs))
+	for _, srv := range srvs {
+		services = append(services, &protocol.ShadowsocksService{
+			port:     srv.port,
+			password: srv.password,
+		})
+	}
+	return &protocol.ServiceList{
+		Services: services,
+	}
+}
+
+func constructServiceList(srvList *protocol.ServiceList) []shadowsocksService {
+	srvs := make([]shadowsocksService, 0, len(srvList.GetServices()))
+	for _, pbsrv := range srvList.GetServices() {
+		srvs = append(srvs, shadowsocksService{
+			userId:   pbsrv.GetUserId(),
+			port:     pbsrv.GetPort(),
+			password: pbsrv.GetPassword(),
+		})
+	}
+	return srvs
+}
+
+func compareLists(required, current *protocol.ServiceList) (diff []shadowsocksService) {
+	diff = make([]int, 0, 1)
+	for _, a := range required.GetServices() {
+		for _, b := range current.GetServices() {
+			if a.GetUserId() == b.GetUserId() && a.GetPassword() == b.GetPassword() {
+				break
+			}
+		}
+		diff = append(diff, shadowsocksService{
+			userId:   a.GetUserId(),
+			port:     -1,
+			password: a.GetPassword(),
+		})
+	}
+	return diff
+}
+
+func constructErrorFromDifferenceServiceList(diff []shadowsocksService) error {
+	if diff == nil || len(diff) == 0 {
+		return nil
+	}
+	var errMsg string
+	if len(diff) == 1 {
+		errMsg := fmt.Sprintf("There is 1 service not allocated (user: password):")
+	} else {
+		errMsg := fmt.Sprintf("There are %d services not allocated (user: password):")
+	}
+	for _, srv := range diff {
+		errMsg += fmt.Sprintf("\n  %s: %s", srv.userId, srv.password)
+	}
+	return errors.New(errMsg)
+}
+
 func (s *slave) Allocate(srvs ...shadowsocksService) ([]shadowsocksService, error) {
-	return nil, nil
+	serviceList := constructProtocolServiceList(srvs)
+	resp, err := s.stub.Allocate(context.Background(), &protocol.AllocateRequest{
+		ServiceList: serviceList,
+	})
+	if err != nil {
+		return nil, error
+	}
+	diff := compareLists(serviceList, resp.GetServiceList())
+	allocatedList := constructServiceList(resp.GetServiceList())
+	if len(diff) != 0 {
+		return allocatedList, constructErrorFromDifferenceServiceList(diff)
+	}
+	return allocatedList, nil
 }
 
 func (s *slave) Free(srvs ...shadowsocksService) ([]shadowsocksService, error) {
-
-	return nil, nil
+	serviceList := constructProtocolServiceList(srvs)
+	resp, err := s.stub.Free(context.Background(), &protocol.FreeRequest{
+		ServiceList: serviceList,
+	})
+	if err != nil {
+		return nil, error
+	}
+	diff := compareLists(serviceList, resp.GetServiceList())
+	freedList := constructServiceList(resp.GetServiceList())
+	if len(diff) != 0 {
+		return freedList, constructErrorFromDifferenceServiceList(diff)
+	}
+	return freedList, nil
 }
 
 func (s *slave) ListServices() ([]shadowsocksService, error) {
