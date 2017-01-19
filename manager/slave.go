@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/Sirupsen/logrus"
 	"github.com/arkbriar/ss-mgr/manager/protocol"
 	"google.golang.org/grpc"
 )
@@ -18,18 +19,39 @@ type shadowsocksService struct {
 // slaveMeta represents the meta information required by a local slave object.
 type slaveMeta struct {
 	openedPorts map[int32]*shadowsocksService
+	stats       map[int32]int64
 }
 
 func (m *slaveMeta) addPorts(srvs ...*shadowsocksService) {
 	for _, srv := range srvs {
 		m.openedPorts[srv.Port] = srv
+		m.stats[srv.Port] = 0
 	}
 }
 
 func (m *slaveMeta) removePorts(srvs ...*shadowsocksService) {
 	for _, srv := range srvs {
 		delete(m.openedPorts, srv.Port)
+		delete(m.stats, srv.Port)
 	}
+}
+
+func (m *slaveMeta) setStats(stats map[int32]int64) {
+	for port, traffic := range stats {
+		m.stats[port] = traffic
+	}
+}
+
+func (m *slaveMeta) ListServices() []*shadowsocksService {
+	srvs := make([]*shadowsocksService, 0, len(m.openedPorts))
+	for _, srv := range m.openedPorts {
+		srvs = append(srvs, srv)
+	}
+	return srvs
+}
+
+func (m *slaveMeta) GetStats() map[int32]int64 {
+	return m.stats
 }
 
 // Slave provides interfaces for managing the remote slave.
@@ -166,6 +188,7 @@ func (s *slave) Allocate(srvs ...*shadowsocksService) ([]*shadowsocksService, er
 	}
 	diff := compareLists(serviceList, resp.GetServiceList())
 	allocatedList := constructServiceList(resp.GetServiceList())
+	s.meta.addPorts(allocatedList...)
 	if len(diff) != 0 {
 		return allocatedList, constructErrorFromDifferenceServiceList(diff)
 	}
@@ -182,6 +205,7 @@ func (s *slave) Free(srvs ...*shadowsocksService) ([]*shadowsocksService, error)
 	}
 	diff := compareLists(serviceList, resp.GetServiceList())
 	freedList := constructServiceList(resp.GetServiceList())
+	s.meta.removePorts(freedList...)
 	if len(diff) != 0 {
 		return freedList, constructErrorFromDifferenceServiceList(diff)
 	}
@@ -193,6 +217,11 @@ func (s *slave) ListServices() ([]*shadowsocksService, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Compare the returned list with those recorded.
+	diff := compareLists(constructProtocolServiceList(s.meta.ListServices()...), resp)
+	if len(diff) != 0 {
+		logrus.Warnln(constructErrorFromDifferenceServiceList(diff))
+	}
 	return constructServiceList(resp), nil
 }
 
@@ -201,6 +230,7 @@ func (s *slave) GetStats() (map[int32]int64, error) {
 	if err != nil {
 		return nil, err
 	}
+	s.meta.setStats(resp.GetTraffics())
 	return resp.GetTraffics(), nil
 }
 
@@ -211,6 +241,7 @@ func (s *slave) SetStats(traffics map[int32]int64) error {
 	if err != nil {
 		return err
 	}
+	s.meta.setStats(traffics)
 	return nil
 }
 
