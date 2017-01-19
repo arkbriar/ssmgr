@@ -64,7 +64,7 @@ type Slave interface {
 	// The services added is returned.
 	Allocate(srvs ...*shadowsocksService) ([]*shadowsocksService, error)
 	// Free removes services on the remote slave node.
-	// The services removed is returned
+	// The services removed is returned.
 	Free(srvs ...*shadowsocksService) ([]*shadowsocksService, error)
 	// ListServices gets all alive services.
 	ListServices() ([]*shadowsocksService, error)
