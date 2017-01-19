@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+
+message ShadowsocksService {
+  int32 port = 1;
+  string password = 2;
+}
+
+message ServiceList {
+  repeated ShadowsocksService services = 1;
+}
+
+message Statistics {
+  map<int32, int64> traffics = 1;
+}
+
+message AllocateRequest {
+  ServiceList service_list = 1;
+}
+
+message AllocateResponse {
+  ServiceList service_list = 1;
+}
+
+message FreeRequest {
+  ServiceList service_list = 1;
+}
+
+message FreeResponse {
+  ServiceList service_list = 1;
+}
+
+// ShadowsocksManagerSlave rpc service provides an interface to communicate with 
+// remote slave node.
+service ShadowsocksManagerSlave {
+  rpc Allocate(AllocateRequest) returns (AllocateResponse) {}
+  rpc Free(FreeRequest) returns (FreeResponse) {}
+  rpc ListServices(google.protobuf.Empty) returns (ServiceList) {}
+  rpc GetStats(google.protobuf.Empty) returns (Statistics) {}
+  rpc GetStatsStream(google.protobuf.Empty) returns (stream Statistics) {}
+  rpc SetStat(Statistics) returns (google.protobuf.Empty) {}
+}
+
+message RegisterRequest {
+  string self_url = 1;
+}
+
+message RegisterResponse {
+  string token = 1;
+}
+
+// ShadowsocksManagerMaster rpc service provices an interface for slaves to register 
+// request other informations on the master.
+service ShadowsocksManagerMaster {
+  // Register registes self on the master node.
+  rpc Register(RegisterRequest) returns (RegisterResponse) {}
+}
