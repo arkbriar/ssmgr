@@ -207,7 +207,7 @@ func (s *slaveServer) SetStats(ctx context.Context, stats *protocol.Statistics) 
 	return nil, nil
 }
 
-// RegisterSlaveServer creates a new slave grpc server and register itself to grpc services.
+// RegisterSlaveServer creates a new slave grpc server and registers itself to grpc services.
 // It will panic if there are something wrong when creating slave grpc server.
 func RegisterSlaveServer(s *grpc.Server, managerURL string) {
 	slaveServer, err := newSlaveGRPCServer(managerURL)
