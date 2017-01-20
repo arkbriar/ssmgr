@@ -7,10 +7,33 @@ import (
 	"github.com/arkbriar/ss-mgr/manager/protocol"
 )
 
+func constructShadowsocksServiceFromProtocolService(srv *protocol.ShadowsocksService) *shadowsocksService {
+	if srv == nil {
+		return nil
+	}
+	return &shadowsocksService{
+		UserId:   srv.GetUserId(),
+		Port:     srv.GetPort(),
+		Password: srv.GetPassword(),
+	}
+}
+
+func constructProtocolServiceFromShadowsocksService(srv *shadowsocksService) *protocol.ShadowsocksService {
+	if srv == nil {
+		return nil
+	}
+	return &protocol.ShadowsocksService{
+		UserId:   srv.UserId,
+		Port:     srv.Port,
+		Password: srv.Password,
+	}
+}
+
 func constructProtocolServiceList(srvs ...*shadowsocksService) *protocol.ServiceList {
 	services := make([]*protocol.ShadowsocksService, 0, len(srvs))
 	for _, srv := range srvs {
 		services = append(services, &protocol.ShadowsocksService{
+			UserId:   srv.UserId,
 			Port:     srv.Port,
 			Password: srv.Password,
 		})

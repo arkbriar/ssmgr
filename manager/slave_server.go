@@ -156,7 +156,38 @@ func (s *slaveServer) Allocate(ctx context.Context, r *protocol.AllocateRequest)
 	}, nil
 }
 
+func (s *slaveServer) freePort(port int32) {
+	s.portPool.Free(port)
+}
+
+func (s *slaveServer) freeServiceStatistics(srvs ...*shadowsocksService) {
+	s.statsLock.Lock()
+	defer s.statsLock.Unlock()
+	for _, srv := range srvs {
+		delete(s.stats, srv.Port)
+	}
+}
+
 func (s *slaveServer) Free(ctx context.Context, r *protocol.FreeRequest) (*protocol.FreeResponse, error) {
+	reqServices := r.GetServiceList().GetServices()
+	if len(reqServices) == 0 {
+		return nil, nil
+	}
+	s.srvsLock.Lock()
+	defer s.srvsLock.Unlock()
+	freedServices := make([]*shadowsocksService, 0, len(reqServices))
+	for _, srv := range reqServices {
+		if err := s.manager.Remove(srv.GetPort()); err != nil {
+			logrus.Errorf("Removing service on port %d faild, %s\n", srv.GetPort(), err)
+			continue
+		}
+		freedServices = append(freedServices, constructShadowsocksServiceFromProtocolService(srv))
+	}
+	for _, srv := range freedServices {
+		s.freePort(srv.Port)
+		delete(s.srvs, srv.Port)
+	}
+	s.freeServiceStatistics(freedServices...)
 	return nil, nil
 }
 
