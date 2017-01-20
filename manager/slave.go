@@ -101,7 +101,7 @@ func NewSlave(url, token string) Slave {
 	}
 }
 
-func (s *slave) isTokenInvalid() bool {
+func (s *slave) isTokenValid() bool {
 	return len(s.token) == 0
 }
 
