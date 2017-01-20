@@ -11,7 +11,7 @@ import (
 	"github.com/Sirupsen/logrus"
 )
 
-// Manager is an int32erface provides encapsulation of protocol of shadowsocks
+// Manager is an interface provides encapsulation of protocol of shadowsocks
 // manager. One can add a port alone with corresponding password by calling `Add()`
 // and remove a specified port with `Remove()`.
 //
@@ -30,11 +30,11 @@ import (
 //	if err != nil {
 //		log.Panicln(err)
 //	}
-//	log.Print32f("Add port %d with password %s\n", newPort, newPassword)
+//	log.Printf("Add port %d with password %s\n", newPort, newPassword)
 //	if err := mgr.Remove(newPort); err != nil {
 //		log.Panicln(err)
 //	}
-//	log.Print32f("Remove port %d\n", newPort)
+//	log.Printf("Remove port %d\n", newPort)
 type Manager interface {
 	// Dial connects to remote manager and starts a ping thread
 	Dial() error
