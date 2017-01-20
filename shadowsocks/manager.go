@@ -15,6 +15,9 @@ import (
 // manager. One can add a port alone with corresponding password by calling `Add()`
 // and remove a specified port with `Remove()`.
 //
+// There should be a ping thread running when connection between `Manager` and
+// ss-manager is established.
+//
 // Example:
 //	mgr := shadowsocks.NewManager("localhost:6001")
 //	if err := mgr.Dial(); err != nil {
@@ -32,27 +35,8 @@ import (
 //		log.Panicln(err)
 //	}
 //	log.Print32f("Remove port %d\n", newPort)
-//
-// Example heartbeat service, this will update local statsistics periodically.
-//	alive := make(chan struct{}, 1)
-//	go func(alive chan struct{}, mgr shadowsocks.Manager) {
-//		// You must ensure that channel `alive` is not nil.
-//		for {
-//			if err := mgr.Ping(); err != nil {
-//				logrus.Errorln(err)
-//			}
-//			// Here we use some strategy to quit heartbeat when remote is offline.
-//			// For example, 5 continous ping errors result in the break.
-//			time.Sleep(5 * time.Second)
-//		}
-//		close(alive)
-//	} (alive, mgr)
-//	select {
-//	case <- alive:
-//		// hang here
-//	}
 type Manager interface {
-	// Dial connects to remote manager
+	// Dial connects to remote manager and starts a ping thread
 	Dial() error
 	// Add adds a port along with password
 	Add(port int32, password string) error
@@ -79,6 +63,8 @@ type manager struct {
 	statsLock sync.RWMutex
 	// transfer statsistics of manager
 	stats map[int32]int64
+	// close channel for ping thread
+	close chan struct{}
 }
 
 // NewManager returns a shadowsocks manager
@@ -94,22 +80,29 @@ func (mgr *manager) pingThread() {
 	const failLimit = 3
 	const interval = 5 * time.Second
 	errTimes := 0
+	intervalElasped := make(chan struct{}, 1)
 	for {
+		select {
+		case <-intervalElasped:
+			if mgr.conn == nil {
+				logrus.Infof("Manager has closed the connection, Ping thread is going to exit.")
+				break
+			}
+			if err := mgr.Ping(); err != nil {
+				errTimes++
+				logrus.Warnf("Ping failed, %s\n", err)
+			} else {
+				errTimes = 0
+			}
+			if errTimes >= failLimit {
+				logrus.Infof("Ping has failed for %d times, ping thread is going to exit.\n", errTimes)
+				break
+			}
+		case <-mgr.close:
+			break
+		}
 		time.Sleep(interval)
-		if mgr.conn == nil {
-			logrus.Infof("Manager has closed the connection, Ping thread is going to exit.")
-			break
-		}
-		if err := mgr.Ping(); err != nil {
-			errTimes++
-			logrus.Warnf("Ping failed, %s\n", err)
-		} else {
-			errTimes = 0
-		}
-		if errTimes >= failLimit {
-			logrus.Infof("Ping has failed for %d times, ping thread is going to exit.\n", errTimes)
-			break
-		}
+		intervalElasped <- struct{}{}
 	}
 }
 
@@ -119,6 +112,7 @@ func (mgr *manager) Dial() error {
 		return err
 	}
 	mgr.conn = conn
+	mgr.close = make(chan struct{}, 1)
 	// Start the ping thread to update statistics every 5 seconds
 	go mgr.pingThread()
 	return nil
@@ -248,7 +242,10 @@ func (mgr *manager) Ping() error {
 
 func (mgr *manager) Close() error {
 	if mgr.conn != nil {
-		return mgr.conn.Close()
+		mgr.close <- struct{}{}
+		err := mgr.conn.Close()
+		mgr.conn, mgr.close = nil, nil
+		return err
 	}
 	return fmt.Errorf("Close on empty connection.")
 }
