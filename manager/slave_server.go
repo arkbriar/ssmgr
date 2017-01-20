@@ -136,7 +136,7 @@ func (s *slaveServer) Allocate(ctx context.Context, r *protocol.AllocateRequest)
 				break
 			}
 		}
-		err := s.manager.Add(newPort, srv.GetPassword())
+		err = s.manager.Add(newPort, srv.GetPassword())
 		if err != nil {
 			logrus.Errorf("Allocating service %d:%s failed, %s\n", srv.GetPort(), srv.GetPassword(), err)
 			continue
@@ -147,7 +147,13 @@ func (s *slaveServer) Allocate(ctx context.Context, r *protocol.AllocateRequest)
 			Password: srv.GetPassword(),
 		})
 	}
-	return nil, nil
+	for _, alsrv := range allocatedServices {
+		s.srvs[alsrv.Port] = alsrv
+	}
+	s.initializeServicesStatistics(allocatedServices...)
+	return &protocol.AllocateResponse{
+		ServiceList: constructProtocolServiceList(allocatedServices...),
+	}, nil
 }
 
 func (s *slaveServer) Free(ctx context.Context, r *protocol.FreeRequest) (*protocol.FreeResponse, error) {
