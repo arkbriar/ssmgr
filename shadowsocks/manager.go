@@ -6,11 +6,12 @@ import (
 	"net"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/Sirupsen/logrus"
 )
 
-// Manager is an interface provides encapsulation of protocol of shadowsocks
+// Manager is an int32erface provides encapsulation of protocol of shadowsocks
 // manager. One can add a port alone with corresponding password by calling `Add()`
 // and remove a specified port with `Remove()`.
 //
@@ -26,13 +27,13 @@ import (
 //	if err != nil {
 //		log.Panicln(err)
 //	}
-//	log.Printf("Add port %d with password %s\n", newPort, newPassword)
+//	log.Print32f("Add port %d with password %s\n", newPort, newPassword)
 //	if err := mgr.Remove(newPort); err != nil {
 //		log.Panicln(err)
 //	}
-//	log.Printf("Remove port %d\n", newPort)
+//	log.Print32f("Remove port %d\n", newPort)
 //
-// Example heartbeat service, this will update local statistics periodically.
+// Example heartbeat service, this will update local statsistics periodically.
 //	alive := make(chan struct{}, 1)
 //	go func(alive chan struct{}, mgr shadowsocks.Manager) {
 //		// You must ensure that channel `alive` is not nil.
@@ -54,15 +55,15 @@ type Manager interface {
 	// Dial connects to remote manager
 	Dial() error
 	// Add adds a port along with password
-	Add(port int, password string) error
+	Add(port int32, password string) error
 	// Remove deletes an opened port
-	Remove(port int) error
+	Remove(port int32) error
 	// Ping sends a ping
 	Ping() error
-	// SetStat sets the traffic statistics of the given port
-	SetStat(stat map[int32]int64) error
-	// GetStat gets the traffic statistics of all open ports
-	GetStat() map[int32]int64
+	// Setstats sets the traffic statsistics of the given port
+	Setstats(stats map[int32]int64) error
+	// Getstats gets the traffic statsistics of all open ports
+	Getstats() map[int32]int64
 	// Close closes the connection
 	Close() error
 }
@@ -74,10 +75,10 @@ type manager struct {
 	// udp connection of remote manager, opened on Dial() and closed on
 	// Close()
 	conn net.Conn
-	// read write mutex for stats
-	statLock sync.RWMutex
-	// transfer statistics of manager
-	stat map[int32]int64
+	// read write mutex for statss
+	statsLock sync.RWMutex
+	// transfer statsistics of manager
+	stats map[int32]int64
 }
 
 // NewManager returns a shadowsocks manager
@@ -85,7 +86,30 @@ func NewManager(url string) Manager {
 	return &manager{
 		remoteURL: url,
 		conn:      nil,
-		stat:      nil,
+		stats:     nil,
+	}
+}
+
+func (mgr *manager) pingThread() {
+	const failLimit = 3
+	const interval = 5 * time.Second
+	errTimes := 0
+	for {
+		time.Sleep(interval)
+		if mgr.conn == nil {
+			logrus.Infof("Manager has closed the connection, Ping thread is going to exit.")
+			break
+		}
+		if err := mgr.Ping(); err != nil {
+			errTimes++
+			logrus.Warnf("Ping failed, %s\n", err)
+		} else {
+			errTimes = 0
+		}
+		if errTimes >= failLimit {
+			logrus.Infof("Ping has failed for %d times, ping thread is going to exit.\n", errTimes)
+			break
+		}
 	}
 }
 
@@ -95,12 +119,14 @@ func (mgr *manager) Dial() error {
 		return err
 	}
 	mgr.conn = conn
+	// Start the ping thread to update statistics every 5 seconds
+	go mgr.pingThread()
 	return nil
 }
 
-func (mgr *manager) Add(port int, password string) error {
+func (mgr *manager) Add(port int32, password string) error {
 	msg := &struct {
-		ServerPort int    `json:"server_port"`
+		ServerPort int32  `json:"server_port"`
 		Password   string `json:"password"`
 	}{
 		ServerPort: port,
@@ -122,9 +148,9 @@ func (mgr *manager) Add(port int, password string) error {
 	return nil
 }
 
-func (mgr *manager) Remove(port int) error {
+func (mgr *manager) Remove(port int32) error {
 	msg := &struct {
-		ServerPort int `json:"server_port"`
+		ServerPort int32 `json:"server_port"`
 	}{
 		ServerPort: port,
 	}
@@ -144,62 +170,62 @@ func (mgr *manager) Remove(port int) error {
 	return nil
 }
 
-func constructStatJson(stat map[int32]int64) []byte {
+func constructstatsJson(stats map[int32]int64) []byte {
 	beforeMarshal := make(map[string]int64)
-	statJSONBytes, err := json.Marshal(beforeMarshal)
+	statsJSONBytes, err := json.Marshal(beforeMarshal)
 	if err != nil {
 		logrus.Errorln(err)
 		return nil
 	}
-	return statJSONBytes
+	return statsJSONBytes
 }
 
-func (mgr *manager) SetStat(stat map[int32]int64) error {
-	_, err := mgr.conn.Write(append([]byte("stat: "), constructStatJson(stat)...))
+func (mgr *manager) Setstats(stats map[int32]int64) error {
+	_, err := mgr.conn.Write(append([]byte("stats: "), constructstatsJson(stats)...))
 	if err != nil {
 		return err
 	}
-	mgr.statLock.Lock()
-	defer mgr.statLock.Unlock()
-	mgr.stat = stat
+	mgr.statsLock.Lock()
+	defer mgr.statsLock.Unlock()
+	mgr.stats = stats
 	return nil
 }
 
-func (mgr *manager) GetStat() map[int32]int64 {
-	mgr.statLock.RLock()
-	defer mgr.statLock.RUnlock()
-	return mgr.stat
+func (mgr *manager) Getstats() map[int32]int64 {
+	mgr.statsLock.RLock()
+	defer mgr.statsLock.RUnlock()
+	return mgr.stats
 }
 
-func copyStatJsonTo(raw map[string]int64, dest *map[int32]int64) error {
+func copystatsJsonTo(raw map[string]int64, dest *map[int32]int64) error {
 	trueDest := make(map[int32]int64)
 	for portInString, traffic := range raw {
 		port, err := strconv.Atoi(portInString)
 		if err != nil {
-			return fmt.Errorf("Can not update traffic statistics of invalid port %s", portInString)
+			return fmt.Errorf("Can not update traffic statsistics of invalid port %s", portInString)
 		}
-		trueDest[port] = traffic
+		trueDest[int32(port)] = traffic
 	}
 	*dest = trueDest
 	return nil
 }
 
-func (mgr *manager) updateStat(respBytes []byte) error {
-	if string(respBytes[:4]) == "stat" {
-		statJSON := respBytes[5:]
-		stat := make(map[string]int64)
-		if err := json.Unmarshal(statJSON, &stat); err != nil {
-			logrus.Errorf("Invalid stat return: %s\n", string(statJSON))
+func (mgr *manager) updatestats(respBytes []byte) error {
+	if string(respBytes[:4]) == "stats" {
+		statsJSON := respBytes[5:]
+		stats := make(map[string]int64)
+		if err := json.Unmarshal(statsJSON, &stats); err != nil {
+			logrus.Errorf("Invalid stats return: %s\n", string(statsJSON))
 			return err
 		}
-		mgr.statLock.Lock()
-		defer mgr.statLock.Unlock()
-		if err := copyStatJsonTo(stat, &mgr.stat); err != nil {
+		mgr.statsLock.Lock()
+		defer mgr.statsLock.Unlock()
+		if err := copystatsJsonTo(stats, &mgr.stats); err != nil {
 			logrus.Errorln(err)
 			return err
 		}
 	} else {
-		return fmt.Errorf("Invalid stats.")
+		return fmt.Errorf("Invalid statss.")
 	}
 	return nil
 }
@@ -214,7 +240,7 @@ func (mgr *manager) Ping() error {
 	if err != nil {
 		return err
 	}
-	if err := mgr.updateStat(respBytes); err != nil {
+	if err := mgr.updatestats(respBytes); err != nil {
 		logrus.Errorln(err)
 	}
 	return nil

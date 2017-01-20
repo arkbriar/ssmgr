@@ -1,9 +1,10 @@
 package manager
 
 import (
-	"context"
 	"errors"
 	"fmt"
+
+	"golang.org/x/net/context"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/arkbriar/ss-mgr/manager/protocol"
@@ -172,7 +173,7 @@ func constructErrorFromDifferenceServiceList(diff []*shadowsocksService) error {
 	if len(diff) == 1 {
 		errMsg = fmt.Sprintf("There is 1 service not allocated (user: password):")
 	} else {
-		errMsg = fmt.Sprintf("There are %d services not allocated (user: password):")
+		errMsg = fmt.Sprintf("There are %d services not allocated (user: password):", len(diff))
 	}
 	for _, srv := range diff {
 		errMsg += fmt.Sprintf("\n  %s: %s", srv.UserId, srv.Password)
