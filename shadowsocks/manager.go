@@ -183,7 +183,9 @@ func (mgr *manager) SetStats(stats map[int32]int64) error {
 	}
 	mgr.statsLock.Lock()
 	defer mgr.statsLock.Unlock()
-	mgr.stats = stats
+	for port, traffic := range stats {
+		mgr.stats[port] = traffic
+	}
 	return nil
 }
 

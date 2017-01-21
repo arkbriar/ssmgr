@@ -73,12 +73,10 @@ func (pool *portPool) Free(port int32) {
 }
 
 type slaveServer struct {
-	srvsLock  sync.RWMutex
-	srvs      map[int32]*shadowsocksService
-	statsLock sync.RWMutex
-	stats     map[int32]int64
-	manager   shadowsocks.Manager
-	portPool  *portPool
+	srvsLock sync.RWMutex
+	srvs     map[int32]*shadowsocksService
+	manager  shadowsocks.Manager
+	portPool *portPool
 }
 
 // newSlaveGRPCServer creates a new server instance and tries to connect to local
@@ -96,7 +94,6 @@ func newSlaveGRPCServer(managerURL string) (protocol.ShadowsocksManagerSlaveServ
 func newSlaveGRPCServerWithActiveManager(manager shadowsocks.Manager) protocol.ShadowsocksManagerSlaveServer {
 	s := &slaveServer{
 		srvs:    make(map[int32]*shadowsocksService),
-		stats:   make(map[int32]int64),
 		manager: manager,
 	}
 	s.portPool = newPortPool(20000, 3000, func(port int32) bool {
@@ -104,14 +101,6 @@ func newSlaveGRPCServerWithActiveManager(manager shadowsocks.Manager) protocol.S
 		return ok
 	})
 	return s
-}
-
-func (s *slaveServer) initializeServicesStatistics(srvs ...*shadowsocksService) {
-	s.statsLock.Lock()
-	defer s.statsLock.Unlock()
-	for _, srv := range srvs {
-		s.stats[srv.Port] = 0
-	}
 }
 
 func (s *slaveServer) allocatePort() (int32, error) {
@@ -151,7 +140,6 @@ func (s *slaveServer) Allocate(ctx context.Context, r *protocol.AllocateRequest)
 	for _, alsrv := range allocatedServices {
 		s.srvs[alsrv.Port] = alsrv
 	}
-	s.initializeServicesStatistics(allocatedServices...)
 	return &protocol.AllocateResponse{
 		ServiceList: constructProtocolServiceList(allocatedServices...),
 	}, nil
@@ -159,14 +147,6 @@ func (s *slaveServer) Allocate(ctx context.Context, r *protocol.AllocateRequest)
 
 func (s *slaveServer) freePort(port int32) {
 	s.portPool.Free(port)
-}
-
-func (s *slaveServer) freeServiceStatistics(srvs ...*shadowsocksService) {
-	s.statsLock.Lock()
-	defer s.statsLock.Unlock()
-	for _, srv := range srvs {
-		delete(s.stats, srv.Port)
-	}
 }
 
 func (s *slaveServer) Free(ctx context.Context, r *protocol.FreeRequest) (*protocol.FreeResponse, error) {
@@ -188,7 +168,6 @@ func (s *slaveServer) Free(ctx context.Context, r *protocol.FreeRequest) (*proto
 		s.freePort(srv.Port)
 		delete(s.srvs, srv.Port)
 	}
-	s.freeServiceStatistics(freedServices...)
 	return nil, nil
 }
 
@@ -209,10 +188,8 @@ func (s *slaveServer) ListServices(ctx context.Context, _ *google_protobuf.Empty
 }
 
 func (s *slaveServer) GetStats(ctx context.Context, _ *google_protobuf.Empty) (*protocol.Statistics, error) {
-	s.statsLock.RLock()
-	defer s.statsLock.RUnlock()
 	return &protocol.Statistics{
-		Traffics: copyStats(s.stats),
+		Traffics: copyStats(s.manager.GetStats()),
 	}, nil
 }
 
@@ -230,9 +207,7 @@ StreamLoop:
 	for {
 		select {
 		case <-next:
-			s.statsLock.RLock()
-			err := ss.Send(&protocol.Statistics{Traffics: copyStats(s.stats)})
-			s.statsLock.RUnlock()
+			err := ss.Send(&protocol.Statistics{Traffics: copyStats(s.manager.GetStats())})
 			if err != nil {
 				errTimes++
 				logrus.Errorf("Stats stream sent failed, %s\n", err)
@@ -254,12 +229,9 @@ StreamLoop:
 }
 
 func (s *slaveServer) SetStats(ctx context.Context, stats *protocol.Statistics) (*google_protobuf.Empty, error) {
-	s.statsLock.Lock()
-	defer s.statsLock.Unlock()
-	for port, traffic := range stats.GetTraffics() {
-		if _, ok := s.stats[port]; ok {
-			s.stats[port] = traffic
-		}
+	err := s.manager.SetStats(stats.GetTraffics())
+	if err != nil {
+		return nil, err
 	}
 	return nil, nil
 }
