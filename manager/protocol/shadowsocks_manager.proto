@@ -54,7 +54,7 @@ message RegisterResponse {
 }
 
 // ShadowsocksManagerMaster rpc service provices an interface for slaves to register 
-// request other informations on the master.
+// or request other informations on the master.
 service ShadowsocksManagerMaster {
   // Register registes self on the master node.
   rpc Register(RegisterRequest) returns (RegisterResponse) {}
