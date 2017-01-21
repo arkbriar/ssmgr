@@ -226,6 +226,7 @@ func (s *slaveServer) GetStatsStream(_ *google_protobuf.Empty, ss protocol.Shado
 	next <- struct{}{}
 	const limit = 5
 	errTimes := 0
+StreamLoop:
 	for {
 		select {
 		case <-next:
@@ -240,11 +241,11 @@ func (s *slaveServer) GetStatsStream(_ *google_protobuf.Empty, ss protocol.Shado
 			}
 			if errTimes >= limit {
 				logrus.Errorf("Stats stream has encountered 5 continous errors, closing")
-				break
+				break StreamLoop
 			}
 		case <-close:
 			logrus.Debugln("Stats stream is closing.")
-			break
+			break StreamLoop
 		}
 		time.Sleep(5 * time.Second)
 		next <- struct{}{}

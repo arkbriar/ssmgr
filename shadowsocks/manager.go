@@ -82,12 +82,13 @@ func (mgr *manager) pingThread() {
 	errTimes := 0
 	intervalElasped := make(chan struct{}, 1)
 	intervalElasped <- struct{}{}
+PingThreadLoop:
 	for {
 		select {
 		case <-intervalElasped:
 			if mgr.conn == nil {
 				logrus.Infof("Manager has closed the connection, Ping thread is going to exit.")
-				break
+				break PingThreadLoop
 			}
 			if err := mgr.Ping(); err != nil {
 				errTimes++
@@ -97,10 +98,10 @@ func (mgr *manager) pingThread() {
 			}
 			if errTimes >= failLimit {
 				logrus.Infof("Ping has failed for %d times, ping thread is going to exit.\n", errTimes)
-				break
+				break PingThreadLoop
 			}
 		case <-mgr.close:
-			break
+			break PingThreadLoop
 		}
 		time.Sleep(interval)
 		intervalElasped <- struct{}{}
