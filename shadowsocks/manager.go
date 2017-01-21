@@ -81,6 +81,7 @@ func (mgr *manager) pingThread() {
 	const interval = 5 * time.Second
 	errTimes := 0
 	intervalElasped := make(chan struct{}, 1)
+	intervalElasped <- struct{}{}
 	for {
 		select {
 		case <-intervalElasped:
