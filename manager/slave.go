@@ -86,13 +86,17 @@ type slave struct {
 	Slave
 }
 
+// tokenType is the key type for context
+type tokenType string
+
+// NewSlave generates a new slave instance to communicate with.
 func NewSlave(url, token string) Slave {
 	return &slave{
 		remoteURL: url,
 		conn:      nil,
 		stub:      nil,
 		token:     token,
-		ctx:       context.WithValue(context.Background(), "TOKEN", token),
+		ctx:       context.WithValue(context.Background(), tokenType("Token"), token),
 		meta: slaveMeta{
 			openedPorts: make(map[int32]*shadowsocksService),
 		},

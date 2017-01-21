@@ -44,10 +44,10 @@ type Manager interface {
 	Remove(port int32) error
 	// Ping sends a ping
 	Ping() error
-	// Setstats sets the traffic statsistics of the given port
-	Setstats(stats map[int32]int64) error
-	// Getstats gets the traffic statsistics of all open ports
-	Getstats() map[int32]int64
+	// SetStats sets the traffic statsistics of the given port
+	SetStats(stats map[int32]int64) error
+	// GetStats gets the traffic statsistics of all open ports
+	GetStats() map[int32]int64
 	// Close closes the connection
 	Close() error
 }
@@ -166,7 +166,7 @@ func (mgr *manager) Remove(port int32) error {
 	return nil
 }
 
-func constructstatsJson(stats map[int32]int64) []byte {
+func constructStatsJSON(stats map[int32]int64) []byte {
 	beforeMarshal := make(map[string]int64)
 	statsJSONBytes, err := json.Marshal(beforeMarshal)
 	if err != nil {
@@ -176,8 +176,8 @@ func constructstatsJson(stats map[int32]int64) []byte {
 	return statsJSONBytes
 }
 
-func (mgr *manager) Setstats(stats map[int32]int64) error {
-	_, err := mgr.conn.Write(append([]byte("stats: "), constructstatsJson(stats)...))
+func (mgr *manager) SetStats(stats map[int32]int64) error {
+	_, err := mgr.conn.Write(append([]byte("stats: "), constructStatsJSON(stats)...))
 	if err != nil {
 		return err
 	}
@@ -187,13 +187,13 @@ func (mgr *manager) Setstats(stats map[int32]int64) error {
 	return nil
 }
 
-func (mgr *manager) Getstats() map[int32]int64 {
+func (mgr *manager) GetStats() map[int32]int64 {
 	mgr.statsLock.RLock()
 	defer mgr.statsLock.RUnlock()
 	return mgr.stats
 }
 
-func copystatsJsonTo(raw map[string]int64, dest *map[int32]int64) error {
+func copyStatsJSONTo(raw map[string]int64, dest *map[int32]int64) error {
 	trueDest := make(map[int32]int64)
 	for portInString, traffic := range raw {
 		port, err := strconv.Atoi(portInString)
@@ -206,7 +206,7 @@ func copystatsJsonTo(raw map[string]int64, dest *map[int32]int64) error {
 	return nil
 }
 
-func (mgr *manager) updatestats(respBytes []byte) error {
+func (mgr *manager) updateStats(respBytes []byte) error {
 	if string(respBytes[:4]) == "stats" {
 		statsJSON := respBytes[5:]
 		stats := make(map[string]int64)
@@ -216,7 +216,7 @@ func (mgr *manager) updatestats(respBytes []byte) error {
 		}
 		mgr.statsLock.Lock()
 		defer mgr.statsLock.Unlock()
-		if err := copystatsJsonTo(stats, &mgr.stats); err != nil {
+		if err := copyStatsJSONTo(stats, &mgr.stats); err != nil {
 			logrus.Errorln(err)
 			return err
 		}
@@ -236,7 +236,7 @@ func (mgr *manager) Ping() error {
 	if err != nil {
 		return err
 	}
-	if err := mgr.updatestats(respBytes); err != nil {
+	if err := mgr.updateStats(respBytes); err != nil {
 		logrus.Errorln(err)
 	}
 	return nil
