@@ -44,7 +44,8 @@ type Manager interface {
 	Remove(port int32) error
 	// Ping sends a ping
 	Ping() error
-	// SetStats sets the traffic statsistics of the given port
+	// SetStats sets the traffic statsistics of the given port and does not remove
+	// the existing ports
 	SetStats(stats map[int32]int64) error
 	// GetStats gets the traffic statsistics of all open ports
 	GetStats() map[int32]int64
