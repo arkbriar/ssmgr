@@ -20,7 +20,7 @@ Slave server management (process monitor/manager) | 2017-02-05 | `[0%===========
 Plugin protocol and implementation | 2017-02-10 | `[0%===================]` |
 Advanced features `*` | 2017-02-28 | `[0%===================]` |
 
-P.S. tasks with `*` are not considered in release plans.
+P.S. tasks with `*` will not be considered in release plans.
 
 1. We will freeze feature when tasks without `*` are all realized.
 2. When developing advanced features, we will provide an option to disable them.
