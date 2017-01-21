@@ -17,7 +17,7 @@ type masterServer struct {
 // newMasterServer creates a new master server
 func newMasterServer() protocol.ShadowsocksManagerMasterServer {
 	return &masterServer{
-		slaveList: make(map[string]Slave),
+		slaveList: make(map[uuid.UUID]Slave),
 	}
 }
 
