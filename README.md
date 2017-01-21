@@ -22,7 +22,7 @@ Advanced features `*` | 2017-02-28 | `[0%===================]` |
 
 P.S. tasks with `*` will not be considered in release plans.
 
-1. We will freeze feature when tasks without `*` are all realized.
+1. We will freeze feature and prepare to test and release the first version when tasks without `*` are all realized.
 2. When developing advanced features, we will provide an option to disable them.
 
 
