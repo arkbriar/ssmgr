@@ -87,3 +87,11 @@ func constructErrorFromDifferenceServiceList(diff []*shadowsocksService) error {
 	}
 	return errors.New(errMsg)
 }
+
+func copyStats(stats map[int32]int64) map[int32]int64 {
+	newStats := make(map[int32]int64)
+	for key, value := range stats {
+		newStats[key] = value
+	}
+	return newStats
+}

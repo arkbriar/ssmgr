@@ -3,6 +3,7 @@ package manager
 import (
 	"errors"
 	"sync"
+	"time"
 
 	"golang.org/x/net/context"
 
@@ -191,19 +192,74 @@ func (s *slaveServer) Free(ctx context.Context, r *protocol.FreeRequest) (*proto
 	return nil, nil
 }
 
+func (s *slaveServer) listServices() []*shadowsocksService {
+	s.srvsLock.RLock()
+	defer s.srvsLock.RUnlock()
+	srvSlice := make([]*shadowsocksService, 0, len(s.srvs))
+	for _, srv := range s.srvs {
+		srvSlice = append(srvSlice, srv)
+	}
+	return srvSlice
+}
+
 func (s *slaveServer) ListServices(ctx context.Context, _ *google_protobuf.Empty) (*protocol.ServiceList, error) {
-	return nil, nil
+	s.srvsLock.RLock()
+	defer s.srvsLock.RUnlock()
+	return constructProtocolServiceList(s.listServices()...), nil
 }
 
 func (s *slaveServer) GetStats(ctx context.Context, _ *google_protobuf.Empty) (*protocol.Statistics, error) {
-	return nil, nil
+	s.statsLock.RLock()
+	defer s.statsLock.RUnlock()
+	return &protocol.Statistics{
+		Traffics: copyStats(s.stats),
+	}, nil
 }
 
 func (s *slaveServer) GetStatsStream(_ *google_protobuf.Empty, ss protocol.ShadowsocksManagerSlave_GetStatsStreamServer) error {
+	close := make(chan struct{}, 1)
+	go func() {
+		ss.RecvMsg(nil)
+		close <- struct{}{}
+	}()
+	next := make(chan struct{}, 1)
+	next <- struct{}{}
+	const limit = 5
+	errTimes := 0
+	for {
+		select {
+		case <-next:
+			s.statsLock.RLock()
+			err := ss.Send(&protocol.Statistics{Traffics: copyStats(s.stats)})
+			s.statsLock.RUnlock()
+			if err != nil {
+				errTimes++
+				logrus.Errorf("Stats stream sent failed, %s\n", err)
+			} else {
+				errTimes = 0
+			}
+			if errTimes >= limit {
+				logrus.Errorf("Stats stream has encountered 5 continous errors, closing")
+				break
+			}
+		case <-close:
+			logrus.Debugln("Stats stream is closing.")
+			break
+		}
+		time.Sleep(5 * time.Second)
+		next <- struct{}{}
+	}
 	return nil
 }
 
 func (s *slaveServer) SetStats(ctx context.Context, stats *protocol.Statistics) (*google_protobuf.Empty, error) {
+	s.statsLock.Lock()
+	defer s.statsLock.Unlock()
+	for port, traffic := range stats.GetTraffics() {
+		if _, ok := s.stats[port]; ok {
+			s.stats[port] = traffic
+		}
+	}
 	return nil, nil
 }
 
