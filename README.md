@@ -15,7 +15,7 @@ Shadowsocks manager of multiple servers.
 Tasks | Original Due | Progress | Realized Date
 :-: | :-: | :-: | :-:
 Manager protocol and implementation | 2017-01-24 | `[==================90%]` | 
-Persistence layer (for master) | 2017-02-01 | `[==10%================]` |
+Persistence layer (for master) | 2017-02-01 | `[=======40%===========]` |
 Slave server management (process monitor/manager) | 2017-02-05 | `[0%===================]` |
 Plugin protocol and implementation | 2017-02-10 | `[0%===================]` |
 Advanced features `*` | 2017-02-28 | `[0%===================]` |
