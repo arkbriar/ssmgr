@@ -15,7 +15,7 @@ Shadowsocks manager of multiple servers.
 Tasks | Original Due | Progress | Realized Date
 :-: | :-: | :-: | :-:
 Manager protocol and implementation | 2017-01-24 | `[==================90%]` | 
-Persistense layer (for master) | 2017-02-01 | `[1%===================]` |
+Persistence layer (for master) | 2017-02-01 | `[1%===================]` |
 Slave server management (process monitor/manager) | 2017-02-05 | `[0%===================]` |
 Plugin protocol and implementation | 2017-02-10 | `[0%===================]` |
 Advanced features `*` | 2017-02-28 | `[0%===================]` |
@@ -25,6 +25,7 @@ P.S. tasks with `*` will not be considered in release plans.
 1. We will freeze feature and prepare to test and release the first version when tasks without `*` are all realized.
 2. When developing advanced features, we will provide an option to disable them.
 
+### Persistence Layer
 
 ### Protocols
 
