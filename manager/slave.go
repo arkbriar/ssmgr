@@ -1,6 +1,8 @@
 package manager
 
 import (
+	"sync"
+
 	"golang.org/x/net/context"
 
 	"github.com/Sirupsen/logrus"
@@ -17,11 +19,15 @@ type ShadowsocksService struct {
 
 // slaveMeta represents the meta information required by a local slave object.
 type slaveMeta struct {
+	portsLock   sync.RWMutex
 	openedPorts map[int32]*ShadowsocksService
+	statsLock   sync.RWMutex
 	stats       map[int32]int64
 }
 
 func (m *slaveMeta) addPorts(srvs ...*ShadowsocksService) {
+	m.portsLock.Lock()
+	defer m.portsLock.Unlock()
 	for _, srv := range srvs {
 		m.openedPorts[srv.Port] = srv
 		m.stats[srv.Port] = 0
@@ -29,6 +35,8 @@ func (m *slaveMeta) addPorts(srvs ...*ShadowsocksService) {
 }
 
 func (m *slaveMeta) removePorts(srvs ...*ShadowsocksService) {
+	m.portsLock.Lock()
+	defer m.portsLock.Unlock()
 	for _, srv := range srvs {
 		delete(m.openedPorts, srv.Port)
 		delete(m.stats, srv.Port)
@@ -36,12 +44,16 @@ func (m *slaveMeta) removePorts(srvs ...*ShadowsocksService) {
 }
 
 func (m *slaveMeta) setStats(stats map[int32]int64) {
+	m.statsLock.Lock()
+	defer m.statsLock.Unlock()
 	for port, traffic := range stats {
 		m.stats[port] = traffic
 	}
 }
 
 func (m *slaveMeta) ListServices() []*ShadowsocksService {
+	m.portsLock.RLock()
+	defer m.portsLock.RUnlock()
 	srvs := make([]*ShadowsocksService, 0, len(m.openedPorts))
 	for _, srv := range m.openedPorts {
 		srvs = append(srvs, srv)
@@ -50,6 +62,8 @@ func (m *slaveMeta) ListServices() []*ShadowsocksService {
 }
 
 func (m *slaveMeta) GetStats() map[int32]int64 {
+	m.statsLock.RLock()
+	defer m.statsLock.RUnlock()
 	return m.stats
 }
 
