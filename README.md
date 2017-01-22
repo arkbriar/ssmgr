@@ -39,8 +39,8 @@ Hostname (Foreign) | Port | Traffic | CreateTime | Status | UserId (Foreign)
 
 __Users__:
 
-UserId (Primary) | Alias | Phone | Email | Password (with salt and md5 hashed) 
-:-: | :-: | :-: | :-: | :-:
+UserId (Primary) | Alias | Role | Phone | Email | Password (with salt and md5 hashed) 
+:-: | :-: | :-: | :-: | :-: | :-:
 
 __Products__:
 

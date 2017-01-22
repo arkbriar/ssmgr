@@ -23,6 +23,7 @@ func (Server) TableName() string {
 // User represents a row in table `users`
 type User struct {
 	UserId   string    `gorm:"primary_key;size:255;not null"`
+	Role     string    `gorm:"size:255;not null"`
 	Alias    string    `gorm:"size:255"`
 	Phone    string    `gorm:"size:255;unique;not null"`
 	Email    string    `gorm:"size:255;unique;not null"`
@@ -30,9 +31,14 @@ type User struct {
 	Services []Service `gorm:"foreign_key:UserId"`
 }
 
-// TableName sets User's table name to be `users`
-func (User) TableName() string {
-	return "users"
+// TableName sets User's table name to be `users` for normal users and
+// "admin_users" for administrators.
+func (u User) TableName() string {
+	if u.Role == "admin" {
+		return "admin_users"
+	} else {
+		return "users"
+	}
 }
 
 // Service represents a row in table `services`
