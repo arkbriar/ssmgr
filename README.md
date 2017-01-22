@@ -25,7 +25,33 @@ P.S. tasks with `*` will not be considered in release plans.
 1. We will freeze feature and prepare to test and release the first version when tasks without `*` are all realized.
 2. When developing advanced features, we will provide an option to disable them.
 
-### Persistence Layer
+### Persistence Layer (ORM Models)
+
+__Servers__:
+
+Hostname (Primary) | PublicIP | SlavePort | Bandwidth | Transfer | Provider | PrivateIP (Omitempty) | Extra (in JSON)
+:-: | :-: | :-: | :-: | :-: | :-: | :-: | :-:
+
+__Services__ (no primary key):
+
+Hostname | Port | Traffic | CreateTime | Status | UserId (Foreign)
+:-: | :-: | :-: | :-: | :-: | :-:
+
+__Users__:
+
+UserId (Primary) | Alias | Phone | Email | Password (with salt and md5 hashed) 
+:-: | :-: | :-: | :-: | :-:
+
+__Products__:
+
+ProductId (Primary) | Price | Description | Status | Extra (in JSON) 
+:-: | :-: | :-: | :-: | :-:
+
+__Orders__:
+
+OrderId (Primary) | Channel | UserId (Foreign) | CreateTime | Amount | ProductId (Foreign)
+:-: | :-: | :-: | :-: | :-: | :-:
+
 
 ### Protocols
 
