@@ -8,7 +8,8 @@ import (
 	"google.golang.org/grpc"
 )
 
-type shadowsocksService struct {
+// ShadowsocksService contains the necessary infos of a shadowsock service.
+type ShadowsocksService struct {
 	UserId   string `json:"user_id"`
 	Port     int32  `json:"server_port"`
 	Password string `json:"password"`
@@ -16,18 +17,18 @@ type shadowsocksService struct {
 
 // slaveMeta represents the meta information required by a local slave object.
 type slaveMeta struct {
-	openedPorts map[int32]*shadowsocksService
+	openedPorts map[int32]*ShadowsocksService
 	stats       map[int32]int64
 }
 
-func (m *slaveMeta) addPorts(srvs ...*shadowsocksService) {
+func (m *slaveMeta) addPorts(srvs ...*ShadowsocksService) {
 	for _, srv := range srvs {
 		m.openedPorts[srv.Port] = srv
 		m.stats[srv.Port] = 0
 	}
 }
 
-func (m *slaveMeta) removePorts(srvs ...*shadowsocksService) {
+func (m *slaveMeta) removePorts(srvs ...*ShadowsocksService) {
 	for _, srv := range srvs {
 		delete(m.openedPorts, srv.Port)
 		delete(m.stats, srv.Port)
@@ -40,8 +41,8 @@ func (m *slaveMeta) setStats(stats map[int32]int64) {
 	}
 }
 
-func (m *slaveMeta) ListServices() []*shadowsocksService {
-	srvs := make([]*shadowsocksService, 0, len(m.openedPorts))
+func (m *slaveMeta) ListServices() []*ShadowsocksService {
+	srvs := make([]*ShadowsocksService, 0, len(m.openedPorts))
 	for _, srv := range m.openedPorts {
 		srvs = append(srvs, srv)
 	}
@@ -60,12 +61,12 @@ type Slave interface {
 	Close() error
 	// Allocate adds services on the remote slave node.
 	// The services added is returned.
-	Allocate(srvs ...*shadowsocksService) ([]*shadowsocksService, error)
+	Allocate(srvs ...*ShadowsocksService) ([]*ShadowsocksService, error)
 	// Free removes services on the remote slave node.
 	// The services removed is returned.
-	Free(srvs ...*shadowsocksService) ([]*shadowsocksService, error)
+	Free(srvs ...*ShadowsocksService) ([]*ShadowsocksService, error)
 	// ListServices gets all alive services.
-	ListServices() ([]*shadowsocksService, error)
+	ListServices() ([]*ShadowsocksService, error)
 	// GetStats gets the traffic statistics of all alive services.
 	GetStats() (map[int32]int64, error)
 	// SetStats sets the traffic statistics of all alive services.
@@ -98,7 +99,7 @@ func NewSlave(url, token string) Slave {
 		token:     token,
 		ctx:       context.WithValue(context.Background(), tokenType("Token"), token),
 		meta: slaveMeta{
-			openedPorts: make(map[int32]*shadowsocksService),
+			openedPorts: make(map[int32]*ShadowsocksService),
 		},
 	}
 }
@@ -124,7 +125,7 @@ func (s *slave) Close() error {
 	return conn.Close()
 }
 
-func (s *slave) Allocate(srvs ...*shadowsocksService) ([]*shadowsocksService, error) {
+func (s *slave) Allocate(srvs ...*ShadowsocksService) ([]*ShadowsocksService, error) {
 	serviceList := constructProtocolServiceList(srvs...)
 	resp, err := s.stub.Allocate(s.ctx, &protocol.AllocateRequest{
 		ServiceList: serviceList,
@@ -141,7 +142,7 @@ func (s *slave) Allocate(srvs ...*shadowsocksService) ([]*shadowsocksService, er
 	return allocatedList, nil
 }
 
-func (s *slave) Free(srvs ...*shadowsocksService) ([]*shadowsocksService, error) {
+func (s *slave) Free(srvs ...*ShadowsocksService) ([]*ShadowsocksService, error) {
 	serviceList := constructProtocolServiceList(srvs...)
 	resp, err := s.stub.Free(s.ctx, &protocol.FreeRequest{
 		ServiceList: serviceList,
@@ -158,7 +159,7 @@ func (s *slave) Free(srvs ...*shadowsocksService) ([]*shadowsocksService, error)
 	return freedList, nil
 }
 
-func (s *slave) ListServices() ([]*shadowsocksService, error) {
+func (s *slave) ListServices() ([]*ShadowsocksService, error) {
 	resp, err := s.stub.ListServices(s.ctx, nil)
 	if err != nil {
 		return nil, err

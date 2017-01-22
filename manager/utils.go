@@ -7,18 +7,18 @@ import (
 	"github.com/arkbriar/ss-mgr/manager/protocol"
 )
 
-func constructShadowsocksServiceFromProtocolService(srv *protocol.ShadowsocksService) *shadowsocksService {
+func constructShadowsocksServiceFromProtocolService(srv *protocol.ShadowsocksService) *ShadowsocksService {
 	if srv == nil {
 		return nil
 	}
-	return &shadowsocksService{
+	return &ShadowsocksService{
 		UserId:   srv.GetUserId(),
 		Port:     srv.GetPort(),
 		Password: srv.GetPassword(),
 	}
 }
 
-func constructProtocolServiceFromShadowsocksService(srv *shadowsocksService) *protocol.ShadowsocksService {
+func constructProtocolServiceFromShadowsocksService(srv *ShadowsocksService) *protocol.ShadowsocksService {
 	if srv == nil {
 		return nil
 	}
@@ -29,7 +29,7 @@ func constructProtocolServiceFromShadowsocksService(srv *shadowsocksService) *pr
 	}
 }
 
-func constructProtocolServiceList(srvs ...*shadowsocksService) *protocol.ServiceList {
+func constructProtocolServiceList(srvs ...*ShadowsocksService) *protocol.ServiceList {
 	services := make([]*protocol.ShadowsocksService, 0, len(srvs))
 	for _, srv := range srvs {
 		services = append(services, &protocol.ShadowsocksService{
@@ -43,10 +43,10 @@ func constructProtocolServiceList(srvs ...*shadowsocksService) *protocol.Service
 	}
 }
 
-func constructServiceList(srvList *protocol.ServiceList) []*shadowsocksService {
-	srvs := make([]*shadowsocksService, 0, len(srvList.GetServices()))
+func constructServiceList(srvList *protocol.ServiceList) []*ShadowsocksService {
+	srvs := make([]*ShadowsocksService, 0, len(srvList.GetServices()))
 	for _, pbsrv := range srvList.GetServices() {
-		srvs = append(srvs, &shadowsocksService{
+		srvs = append(srvs, &ShadowsocksService{
 			UserId:   pbsrv.GetUserId(),
 			Port:     pbsrv.GetPort(),
 			Password: pbsrv.GetPassword(),
@@ -55,15 +55,15 @@ func constructServiceList(srvList *protocol.ServiceList) []*shadowsocksService {
 	return srvs
 }
 
-func compareLists(required, current *protocol.ServiceList) (diff []*shadowsocksService) {
-	diff = make([]*shadowsocksService, 0, 1)
+func compareLists(required, current *protocol.ServiceList) (diff []*ShadowsocksService) {
+	diff = make([]*ShadowsocksService, 0, 1)
 	for _, a := range required.GetServices() {
 		for _, b := range current.GetServices() {
 			if a.GetUserId() == b.GetUserId() && a.GetPassword() == b.GetPassword() {
 				break
 			}
 		}
-		diff = append(diff, &shadowsocksService{
+		diff = append(diff, &ShadowsocksService{
 			UserId:   a.GetUserId(),
 			Port:     -1,
 			Password: a.GetPassword(),
@@ -72,7 +72,7 @@ func compareLists(required, current *protocol.ServiceList) (diff []*shadowsocksS
 	return diff
 }
 
-func constructErrorFromDifferenceServiceList(diff []*shadowsocksService) error {
+func constructErrorFromDifferenceServiceList(diff []*ShadowsocksService) error {
 	if diff == nil || len(diff) == 0 {
 		return nil
 	}

@@ -74,7 +74,7 @@ func (pool *portPool) Free(port int32) {
 
 type slaveServer struct {
 	srvsLock sync.RWMutex
-	srvs     map[int32]*shadowsocksService
+	srvs     map[int32]*ShadowsocksService
 	manager  shadowsocks.Manager
 	portPool *portPool
 }
@@ -93,7 +93,7 @@ func newSlaveGRPCServer(managerURL string) (protocol.ShadowsocksManagerSlaveServ
 
 func newSlaveGRPCServerWithActiveManager(manager shadowsocks.Manager) protocol.ShadowsocksManagerSlaveServer {
 	s := &slaveServer{
-		srvs:    make(map[int32]*shadowsocksService),
+		srvs:    make(map[int32]*ShadowsocksService),
 		manager: manager,
 	}
 	s.portPool = newPortPool(20000, 3000, func(port int32) bool {
@@ -118,7 +118,7 @@ func (s *slaveServer) Allocate(ctx context.Context, r *protocol.AllocateRequest)
 	}
 	s.srvsLock.Lock()
 	defer s.srvsLock.Unlock()
-	allocatedServices := make([]*shadowsocksService, 0, len(reqServices))
+	allocatedServices := make([]*ShadowsocksService, 0, len(reqServices))
 	for _, srv := range reqServices {
 		newPort, err := s.allocatePort()
 		if err != nil {
@@ -131,7 +131,7 @@ func (s *slaveServer) Allocate(ctx context.Context, r *protocol.AllocateRequest)
 			logrus.Errorf("Allocating service %d:%s failed, %s\n", srv.GetPort(), srv.GetPassword(), err)
 			continue
 		}
-		allocatedServices = append(allocatedServices, &shadowsocksService{
+		allocatedServices = append(allocatedServices, &ShadowsocksService{
 			UserId:   srv.GetUserId(),
 			Port:     newPort,
 			Password: srv.GetPassword(),
@@ -156,7 +156,7 @@ func (s *slaveServer) Free(ctx context.Context, r *protocol.FreeRequest) (*proto
 	}
 	s.srvsLock.Lock()
 	defer s.srvsLock.Unlock()
-	freedServices := make([]*shadowsocksService, 0, len(reqServices))
+	freedServices := make([]*ShadowsocksService, 0, len(reqServices))
 	for _, srv := range reqServices {
 		if err := s.manager.Remove(srv.GetPort()); err != nil {
 			logrus.Errorf("Removing service on port %d faild, %s\n", srv.GetPort(), err)
@@ -171,10 +171,10 @@ func (s *slaveServer) Free(ctx context.Context, r *protocol.FreeRequest) (*proto
 	return nil, nil
 }
 
-func (s *slaveServer) listServices() []*shadowsocksService {
+func (s *slaveServer) listServices() []*ShadowsocksService {
 	s.srvsLock.RLock()
 	defer s.srvsLock.RUnlock()
-	srvSlice := make([]*shadowsocksService, 0, len(s.srvs))
+	srvSlice := make([]*ShadowsocksService, 0, len(s.srvs))
 	for _, srv := range s.srvs {
 		srvSlice = append(srvSlice, srv)
 	}
