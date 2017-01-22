@@ -34,22 +34,22 @@ Hostname (Primary) | PublicIP | SlavePort | Bandwidth | Transfer | Provider | Pr
 
 __Services__ (no primary key):
 
-Hostname (Foreign) | Port | Traffic | CreateTime | Status | UserId (Foreign)
+Hostname (Foreign) | Port | Traffic | CreatedAt | Status | UserId (Foreign)
 :-: | :-: | :-: | :-: | :-: | :-:
 
 __Users__:
 
-UserId (Primary) | Alias | Role | Phone | Email | Password (with salt and md5 hashed) 
-:-: | :-: | :-: | :-: | :-: | :-:
+ID (Primary) | Alias | Role | Phone | Email | CreatedAt | Password (with salt and md5 hashed)
+:-: | :-: | :-: | :-: | :-: | :-: | :-:
 
 __Products__:
 
-ProductId (Primary) | Price | Description | Status | Extra (in JSON) 
-:-: | :-: | :-: | :-: | :-:
+ID (Primary) | Price | Description | Status | CreatedAt | Extra (in JSON) 
+:-: | :-: | :-: | :-: | :-: | :-:
 
 __Orders__:
 
-OrderId (Primary) | Channel | UserId (Foreign) | CreateTime | Amount | ProductId (Foreign)
+ID (Primary) | Channel | UserId (Foreign) | CreatedAt | Amount | ProductId (Foreign)
 :-: | :-: | :-: | :-: | :-: | :-:
 
 
