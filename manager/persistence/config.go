@@ -24,12 +24,13 @@ const (
 )
 
 func init() {
-	db, err := gorm.Open(dialect, dbName)
+	var err error
+	db, err = gorm.Open(dialect, dbName)
 	if err != nil {
 		logrus.Panicln(err)
 	}
 	initConfig()
-	createTablesIfNotExsits()
+	createTablesIfNotExsit()
 }
 
 func mustOpen(filename string) *os.File {
@@ -42,7 +43,8 @@ func mustOpen(filename string) *os.File {
 
 func initConfig() {
 	logger := logrus.New()
-	db.LogMode(true).SetLogger(mustOpen(logFile))
+	logger.Out = mustOpen(logFile)
+	db.LogMode(true).SetLogger(logger)
 	// Set up connection pool
 	db.DB().SetMaxIdleConns(20)
 	db.DB().SetMaxOpenConns(50)
@@ -50,11 +52,11 @@ func initConfig() {
 
 // create tables: users, admin_users, servers, services,
 // products, orders.
-func createTablesIfNotExsits() error {
+func createTablesIfNotExsit() {
 	if dialect == "mysql" {
 		db.InstantSet("gorm:table_options", "ENGINE=InnoDB")
 	}
-	defaults := []interface{}{&Server{}, &User{}, &User{Role: "admin"} & Service{}, &Product{}, &Order{}}
+	defaults := []interface{}{&Server{}, &User{}, &User{Role: "admin"}, &Service{}, &Product{}, &Order{}}
 	for table := range defaults {
 		if !db.HasTable(table) {
 			db.CreateTable(table)
