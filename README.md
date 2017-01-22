@@ -34,7 +34,7 @@ Hostname (Primary) | PublicIP | SlavePort | Bandwidth | Transfer | Provider | Pr
 
 __Services__ (no primary key):
 
-Hostname | Port | Traffic | CreateTime | Status | UserId (Foreign)
+Hostname (Foreign) | Port | Traffic | CreateTime | Status | UserId (Foreign)
 :-: | :-: | :-: | :-: | :-: | :-:
 
 __Users__:
