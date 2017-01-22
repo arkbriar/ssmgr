@@ -2,7 +2,7 @@ package models
 
 import "time"
 
-// Server represents a row in table `Servers`
+// Server represents a row in table `servers`
 type Server struct {
 	Hostname  string    `gorm:"priamry_key;size:255;not null"`
 	PublicIP  string    `gorm:"type:char(15);unique;not null"`
@@ -15,7 +15,12 @@ type Server struct {
 	Services  []Service `gorm:"foreign_key:Hostname"`
 }
 
-// User represents a row in table `Users`
+// TableName sets Server's table name to be `servers`
+func (Server) TableName() string {
+	return "servers"
+}
+
+// User represents a row in table `users`
 type User struct {
 	UserId   string    `gorm:"primary_key;size:255;not null"`
 	Alias    string    `gorm:"size:255"`
@@ -25,7 +30,12 @@ type User struct {
 	Services []Service `gorm:"foreign_key:UserId"`
 }
 
-// Service represents a row in table `Services`
+// TableName sets User's table name to be `users`
+func (User) TableName() string {
+	return "users"
+}
+
+// Service represents a row in table `services`
 type Service struct {
 	Hostname   string    `gorm:"size:255;not null"`
 	Port       uint32    `gorm:"not null"`
@@ -35,7 +45,12 @@ type Service struct {
 	UserId     string    `gorm:"size:255;not null"`
 }
 
-// Product represents a row in table `Products`
+// TableName sets Service's table name to be `services`
+func (Service) TableName() string {
+	return "services"
+}
+
+// Product represents a row in table `products`
 type Product struct {
 	ProductId   string  `gorm:"primary_key;size:255;not null"`
 	Price       uint    `gorm:"not null"`
@@ -45,7 +60,12 @@ type Product struct {
 	Orders      []Order `gorm:"foreign_key:ProductId"`
 }
 
-// Order represents a row in table `Orders`
+// TableName sets Product's table name to be `products`
+func (Product) TableName() string {
+	return "products"
+}
+
+// Order represents a row in table `orders`
 type Order struct {
 	OrderId    string    `gorm:"primary_key;size:255;not null"`
 	Channel    string    `gorm:"size:255;not null"`
@@ -54,4 +74,9 @@ type Order struct {
 	CreateTime time.Time `gorm:"not null"`
 	Amount     uint      `gorm:"not null"`
 	ProductId  string    `gorm:"size:255;not null"`
+}
+
+// TableName sets Order's table name to be `orders`
+func (Order) TableName() string {
+	return "orders"
 }
