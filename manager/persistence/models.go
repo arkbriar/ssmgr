@@ -23,7 +23,7 @@ func (Server) TableName() string {
 // User represents a row in table `users`
 type User struct {
 	ID        string    `gorm:"primary_key;size:255;not null"`
-	Role      string    `gorm:"size:255;not null"`
+	Role      string    `gorm:"-"`
 	Alias     string    `gorm:"size:255"`
 	Phone     string    `gorm:"size:255;unique;not null"`
 	Email     string    `gorm:"size:255;unique;not null"`

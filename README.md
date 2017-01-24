@@ -37,9 +37,9 @@ __Services__ (no primary key):
 Hostname (Foreign) | Port | Traffic | CreatedAt | Status | UserId (Foreign)
 :-: | :-: | :-: | :-: | :-: | :-:
 
-__Users__:
+__Users & Admins__:
 
-ID (Primary) | Alias | Role | Phone | Email | CreatedAt | Password (with salt and md5 hashed)
+ID (Primary) | Alias | Phone | Email | CreatedAt | Password (with salt and md5 hashed)
 :-: | :-: | :-: | :-: | :-: | :-: | :-:
 
 __Products__:
