@@ -3,6 +3,7 @@
 package persistence
 
 import (
+	"log"
 	"os"
 
 	"github.com/Sirupsen/logrus"
@@ -42,9 +43,7 @@ func mustOpen(filename string) *os.File {
 }
 
 func initConfig() {
-	logger := logrus.New()
-	logger.Out = mustOpen(logFile)
-	db.LogMode(true).SetLogger(logger)
+	db.LogMode(true).SetLogger(log.New(mustOpen(logFile), "\r\n", 0))
 	// Set up connection pool
 	db.DB().SetMaxIdleConns(20)
 	db.DB().SetMaxOpenConns(50)
@@ -59,7 +58,9 @@ func createTablesIfNotExsit() {
 	defaults := []interface{}{&Server{}, &User{}, &User{Role: "admin"}, &Service{}, &Product{}, &Order{}}
 	for table := range defaults {
 		if !db.HasTable(table) {
-			db.CreateTable(table)
+			if err := db.CreateTable(table).Error; err != nil {
+				logrus.Panicln(err)
+			}
 		}
 	}
 }
