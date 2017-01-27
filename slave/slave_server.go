@@ -1,7 +1,6 @@
 package manager
 
 import (
-	"errors"
 	"sync"
 	"time"
 
@@ -14,69 +13,10 @@ import (
 	"google.golang.org/grpc"
 )
 
-var (
-	poolFullErr = errors.New("Pool is full.")
-)
-
-type portPool struct {
-	lock      sync.Mutex
-	lower     int32
-	size      int32
-	last      int32
-	allocated int32
-	exist     func(int32) bool
-	// blacklist map[int32]struct{}
-}
-
-func newPortPool(lower, size int32, exist func(int32) bool) *portPool {
-	if size <= 0 {
-		panic("Size must be positive.")
-	}
-	return &portPool{
-		lower:     lower,
-		size:      size,
-		last:      -1,
-		allocated: 0,
-		exist:     exist,
-	}
-}
-
-func (pool *portPool) Allocate() int32 {
-	pool.lock.Lock()
-	defer pool.lock.Unlock()
-	if pool.allocated == pool.size {
-		return -1
-	}
-	this := pool.last + 1
-	if pool.last == -1 {
-		this = pool.lower
-	}
-	for {
-		if !pool.exist(this) {
-			pool.allocated++
-			pool.last = this
-		}
-		this++
-		if this >= pool.lower+pool.size {
-			this -= pool.size
-		}
-	}
-}
-
-func (pool *portPool) Free(port int32) {
-	pool.lock.Lock()
-	defer pool.lock.Unlock()
-	if pool.allocated == 0 {
-		return
-	}
-	pool.allocated--
-}
-
 type slaveServer struct {
 	srvsLock sync.RWMutex
 	srvs     map[int32]*ShadowsocksService
 	manager  shadowsocks.Manager
-	portPool *portPool
 }
 
 // newSlaveGRPCServer creates a new server instance and tries to connect to local
@@ -96,19 +36,7 @@ func newSlaveGRPCServerWithActiveManager(manager shadowsocks.Manager) protocol.S
 		srvs:    make(map[int32]*ShadowsocksService),
 		manager: manager,
 	}
-	s.portPool = newPortPool(20000, 3000, func(port int32) bool {
-		_, ok := s.srvs[port]
-		return ok
-	})
 	return s
-}
-
-func (s *slaveServer) allocatePort() (int32, error) {
-	port := s.portPool.Allocate()
-	if port == -1 {
-		return -1, poolFullErr
-	}
-	return port, nil
 }
 
 func (s *slaveServer) Allocate(ctx context.Context, r *protocol.AllocateRequest) (*protocol.AllocateResponse, error) {
@@ -120,22 +48,12 @@ func (s *slaveServer) Allocate(ctx context.Context, r *protocol.AllocateRequest)
 	defer s.srvsLock.Unlock()
 	allocatedServices := make([]*ShadowsocksService, 0, len(reqServices))
 	for _, srv := range reqServices {
-		newPort, err := s.allocatePort()
-		if err != nil {
-			if err == poolFullErr {
-				break
-			}
-		}
-		err = s.manager.Add(newPort, srv.GetPassword())
+		err := s.manager.Add(srv.GetPort(), srv.GetPassword())
 		if err != nil {
 			logrus.Errorf("Allocating service %d:%s failed, %s\n", srv.GetPort(), srv.GetPassword(), err)
 			continue
 		}
-		allocatedServices = append(allocatedServices, &ShadowsocksService{
-			UserId:   srv.GetUserId(),
-			Port:     newPort,
-			Password: srv.GetPassword(),
-		})
+		allocatedServices = append(allocatedServices, constructShadowsocksServiceFromProtocolService(srv))
 	}
 	for _, alsrv := range allocatedServices {
 		s.srvs[alsrv.Port] = alsrv
@@ -143,10 +61,6 @@ func (s *slaveServer) Allocate(ctx context.Context, r *protocol.AllocateRequest)
 	return &protocol.AllocateResponse{
 		ServiceList: constructProtocolServiceList(allocatedServices...),
 	}, nil
-}
-
-func (s *slaveServer) freePort(port int32) {
-	s.portPool.Free(port)
 }
 
 func (s *slaveServer) Free(ctx context.Context, r *protocol.FreeRequest) (*protocol.FreeResponse, error) {
@@ -165,7 +79,6 @@ func (s *slaveServer) Free(ctx context.Context, r *protocol.FreeRequest) (*proto
 		freedServices = append(freedServices, constructShadowsocksServiceFromProtocolService(srv))
 	}
 	for _, srv := range freedServices {
-		s.freePort(srv.Port)
 		delete(s.srvs, srv.Port)
 	}
 	return nil, nil
