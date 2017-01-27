@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/arkbriar/ss-mgr/manager/protocol"
+	"github.com/arkbriar/ss-mgr/protocol"
 )
 
 func constructShadowsocksServiceFromProtocolService(srv *protocol.ShadowsocksService) *ShadowsocksService {

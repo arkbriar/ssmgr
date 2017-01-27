@@ -3,7 +3,7 @@ package manager
 import (
 	"golang.org/x/net/context"
 
-	"github.com/arkbriar/ss-mgr/manager/protocol"
+	"github.com/arkbriar/ss-mgr/protocol"
 	"github.com/satori/go.uuid"
 	"google.golang.org/grpc"
 )
