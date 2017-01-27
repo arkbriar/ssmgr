@@ -5,7 +5,6 @@ package protocol;
 import "google/protobuf/empty.proto";
 
 message ShadowsocksService {
-  string user_id = 99;
   int32 port = 1;
   string password = 2;
 }
@@ -45,17 +44,17 @@ service ShadowsocksManagerSlave {
   rpc SetStats(Statistics) returns (google.protobuf.Empty) {}
 }
 
-message RegisterRequest {
-  string self_url = 1;
-}
-
-message RegisterResponse {
-  string token = 1;
-}
-
-// ShadowsocksManagerMaster rpc service provices an interface for slaves to register 
-// or request other informations on the master.
-service ShadowsocksManagerMaster {
-  // Register registes self on the master node.
-  rpc Register(RegisterRequest) returns (RegisterResponse) {}
-}
+//message RegisterRequest {
+//  string self_url = 1;
+//}
+//
+//message RegisterResponse {
+//  string token = 1;
+//}
+//
+//// ShadowsocksManagerMaster rpc service provices an interface for slaves to register 
+//// or request other informations on the master.
+//service ShadowsocksManagerMaster {
+//  // Register registes self on the master node.
+//  rpc Register(RegisterRequest) returns (RegisterResponse) {}
+//}
