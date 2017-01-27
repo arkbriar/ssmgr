@@ -6,7 +6,7 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/arkbriar/ss-mgr/manager/protocol"
+	"github.com/arkbriar/ss-mgr/protocol"
 	"google.golang.org/grpc"
 )
 

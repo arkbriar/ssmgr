@@ -8,8 +8,8 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/arkbriar/ss-mgr/manager/protocol"
-	"github.com/arkbriar/ss-mgr/shadowsocks"
+	"github.com/arkbriar/ss-mgr/protocol"
+	"github.com/arkbriar/ss-mgr/slave/shadowsocks"
 	google_protobuf "github.com/golang/protobuf/ptypes/empty"
 	"google.golang.org/grpc"
 )
