@@ -206,7 +206,7 @@ func NewManager(udpPort int) Manager {
 
 func (mgr *manager) StatRecvHandler(data []byte) {
 	cmd := string(data[:4])
-	if string(data[:4]) != "stat:" {
+	if string(data[:4]) != "stat" {
 		log.Warnf("Unrecognized command %s, dropped\n", cmd)
 		return
 	}
@@ -318,6 +318,8 @@ func (mgr *manager) kill(s *Server) {
 	if err := s.Process().Kill(); err != nil {
 		log.Warnln(err)
 	}
+	// release process's resource
+	s.runtime.cmd.Wait()
 	s.runtime.logw.Close()
 	mgr.deleteResidue(s)
 }
