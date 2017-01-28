@@ -288,7 +288,7 @@ func (mgr *manager) exec(s *Server) error {
 	if err != nil {
 		return err
 	}
-	logw, err := os.Open(path.Join(s.runtime.path, "ss_server.log"))
+	logw, err := os.Create(path.Join(s.runtime.path, "ss_server.log"))
 	if err != nil {
 		return err
 	}
