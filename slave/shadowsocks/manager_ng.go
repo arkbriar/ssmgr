@@ -45,9 +45,12 @@ func (o *serverOptions) BuildArgs() []string {
 	if len(o.NameServer) != 0 {
 		opts = append(opts, "-d", o.NameServer)
 	}
-	if len(o.PidFile) != 0 {
-		opts = append(opts, "-f", o.PidFile)
-	}
+	// DO NOT USE THIS OPTION
+	// When use pid file, ss-server will create a child process and we can
+	// not operate on it directly.
+	/* if len(o.PidFile) != 0 {
+	 *     opts = append(opts, "-f", o.PidFile)
+	 * } */
 	if len(o.ManagerAddress) != 0 {
 		opts = append(opts, "--manager-address", o.ManagerAddress)
 	}
@@ -117,6 +120,15 @@ func (s *Server) Save(filename string) error {
 	err = ioutil.WriteFile(filename, data, 0644)
 	if err != nil {
 		return err
+	}
+	return nil
+}
+
+// SavePidFile saves current pid to a file (s.options.PidFile). This method
+// is to replace ss-server's '-f' option.
+func (s *Server) SavePidFile() error {
+	if len(s.options.PidFile) != 0 && s.Process() != nil {
+		return ioutil.WriteFile(s.options.PidFile, []byte(fmt.Sprint(s.Process().Pid)), 0644)
 	}
 	return nil
 }
@@ -308,6 +320,9 @@ func (mgr *manager) exec(s *Server) error {
 	cmd.Stdout, cmd.Stderr = logw, logw
 	if err := cmd.Start(); err != nil {
 		return err
+	}
+	if err := s.SavePidFile(); err != nil {
+		log.Warnf("Can not save pid file, %s", err)
 	}
 	s.runtime.logw = logw
 	s.runtime.cmd = cmd
