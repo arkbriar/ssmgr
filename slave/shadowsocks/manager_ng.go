@@ -172,7 +172,10 @@ func (s *Server) GetStat() Stat {
 
 // Process returns the running process / nil of server
 func (s *Server) Process() *os.Process {
-	return s.runtime.cmd.Process
+	if s.runtime.cmd != nil {
+		return s.runtime.cmd.Process
+	}
+	return nil
 }
 
 // Stat represents the statistics collected from a shadowsocks server
