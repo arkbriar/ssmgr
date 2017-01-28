@@ -11,7 +11,7 @@ import (
 	"github.com/Sirupsen/logrus"
 )
 
-// Manager is an interface provides encapsulation of protocol of shadowsocks
+// ManagerClient is an interface provides encapsulation of protocol of shadowsocks
 // manager. One can add a port alone with corresponding password by calling `Add()`
 // and remove a specified port with `Remove()`.
 //
@@ -19,23 +19,23 @@ import (
 // ss-manager is established.
 //
 // Example:
-//	mgr := shadowsocks.NewManager("localhost:6001")
-//	if err := mgr.Dial(); err != nil {
+//	mgrc := shadowsocks.NewManager("localhost:6001")
+//	if err := mgrc.Dial(); err != nil {
 //		log.Panicln(err)
 //	}
-//	defer mgr.Close()
+//	defer mgrc.Close()
 //	newPort := 8001
 //	newPassword = "7cd308cc059"
-//	err := mgr.Add(newPort, newPassword)
+//	err := mgrc.Add(newPort, newPassword)
 //	if err != nil {
 //		log.Panicln(err)
 //	}
 //	log.Printf("Add port %d with password %s\n", newPort, newPassword)
-//	if err := mgr.Remove(newPort); err != nil {
+//	if err := mgrc.Remove(newPort); err != nil {
 //		log.Panicln(err)
 //	}
 //	log.Printf("Remove port %d\n", newPort)
-type Manager interface {
+type ManagerClient interface {
 	// Dial connects to remote manager and starts a ping thread
 	Dial() error
 	// Add adds a port along with password
@@ -53,8 +53,8 @@ type Manager interface {
 	Close() error
 }
 
-// An implementation of manager
-type manager struct {
+// An implementation of manager client
+type managerClient struct {
 	// remote shadowsocks manager url
 	remoteURL string
 	// udp connection of remote manager, opened on Dial() and closed on
@@ -68,16 +68,16 @@ type manager struct {
 	close chan struct{}
 }
 
-// NewManager returns a shadowsocks manager
-func NewManager(url string) Manager {
-	return &manager{
+// NewManagerClient returns a shadowsocks manager client
+func NewManagerClient(url string) ManagerClient {
+	return &managerClient{
 		remoteURL: url,
 		conn:      nil,
 		stats:     nil,
 	}
 }
 
-func (mgr *manager) pingThread() {
+func (mgrc *managerClient) pingThread() {
 	const failLimit = 3
 	const interval = 5 * time.Second
 	errTimes := 0
@@ -87,11 +87,11 @@ PingThreadLoop:
 	for {
 		select {
 		case <-intervalElasped:
-			if mgr.conn == nil {
+			if mgrc.conn == nil {
 				logrus.Infof("Manager has closed the connection, Ping thread is going to exit.")
 				break PingThreadLoop
 			}
-			if err := mgr.Ping(); err != nil {
+			if err := mgrc.Ping(); err != nil {
 				errTimes++
 				logrus.Warnf("Ping failed, %s\n", err)
 			} else {
@@ -101,7 +101,7 @@ PingThreadLoop:
 				logrus.Infof("Ping has failed for %d times, ping thread is going to exit.\n", errTimes)
 				break PingThreadLoop
 			}
-		case <-mgr.close:
+		case <-mgrc.close:
 			break PingThreadLoop
 		}
 		time.Sleep(interval)
@@ -109,19 +109,19 @@ PingThreadLoop:
 	}
 }
 
-func (mgr *manager) Dial() error {
-	conn, err := net.Dial("udp", mgr.remoteURL)
+func (mgrc *managerClient) Dial() error {
+	conn, err := net.Dial("udp", mgrc.remoteURL)
 	if err != nil {
 		return err
 	}
-	mgr.conn = conn
-	mgr.close = make(chan struct{}, 1)
+	mgrc.conn = conn
+	mgrc.close = make(chan struct{}, 1)
 	// Start the ping thread to update statistics every 5 seconds
-	go mgr.pingThread()
+	go mgrc.pingThread()
 	return nil
 }
 
-func (mgr *manager) Add(port int32, password string) error {
+func (mgrc *managerClient) Add(port int32, password string) error {
 	msg := &struct {
 		ServerPort int32  `json:"server_port"`
 		Password   string `json:"password"`
@@ -130,12 +130,12 @@ func (mgr *manager) Add(port int32, password string) error {
 		Password:   password,
 	}
 	bytes, _ := json.Marshal(msg)
-	_, err := mgr.conn.Write(append([]byte("add: "), bytes...))
+	_, err := mgrc.conn.Write(append([]byte("add: "), bytes...))
 	if err != nil {
 		return err
 	}
 	var respBytes []byte
-	_, err = mgr.conn.Read(respBytes)
+	_, err = mgrc.conn.Read(respBytes)
 	if err != nil {
 		return err
 	}
@@ -145,19 +145,19 @@ func (mgr *manager) Add(port int32, password string) error {
 	return nil
 }
 
-func (mgr *manager) Remove(port int32) error {
+func (mgrc *managerClient) Remove(port int32) error {
 	msg := &struct {
 		ServerPort int32 `json:"server_port"`
 	}{
 		ServerPort: port,
 	}
 	bytes, _ := json.Marshal(msg)
-	_, err := mgr.conn.Write(append([]byte("remove: "), bytes...))
+	_, err := mgrc.conn.Write(append([]byte("remove: "), bytes...))
 	if err != nil {
 		return err
 	}
 	var respBytes []byte
-	_, err = mgr.conn.Read(respBytes)
+	_, err = mgrc.conn.Read(respBytes)
 	if err != nil {
 		return err
 	}
@@ -177,23 +177,23 @@ func constructStatsJSON(stats map[int32]int64) []byte {
 	return statsJSONBytes
 }
 
-func (mgr *manager) SetStats(stats map[int32]int64) error {
-	_, err := mgr.conn.Write(append([]byte("stats: "), constructStatsJSON(stats)...))
+func (mgrc *managerClient) SetStats(stats map[int32]int64) error {
+	_, err := mgrc.conn.Write(append([]byte("stats: "), constructStatsJSON(stats)...))
 	if err != nil {
 		return err
 	}
-	mgr.statsLock.Lock()
-	defer mgr.statsLock.Unlock()
+	mgrc.statsLock.Lock()
+	defer mgrc.statsLock.Unlock()
 	for port, traffic := range stats {
-		mgr.stats[port] = traffic
+		mgrc.stats[port] = traffic
 	}
 	return nil
 }
 
-func (mgr *manager) GetStats() map[int32]int64 {
-	mgr.statsLock.RLock()
-	defer mgr.statsLock.RUnlock()
-	return mgr.stats
+func (mgrc *managerClient) GetStats() map[int32]int64 {
+	mgrc.statsLock.RLock()
+	defer mgrc.statsLock.RUnlock()
+	return mgrc.stats
 }
 
 func copyStatsJSONTo(raw map[string]int64, dest *map[int32]int64) error {
@@ -209,7 +209,7 @@ func copyStatsJSONTo(raw map[string]int64, dest *map[int32]int64) error {
 	return nil
 }
 
-func (mgr *manager) updateStats(respBytes []byte) error {
+func (mgrc *managerClient) updateStats(respBytes []byte) error {
 	if string(respBytes[:4]) == "stats" {
 		statsJSON := respBytes[5:]
 		stats := make(map[string]int64)
@@ -217,9 +217,9 @@ func (mgr *manager) updateStats(respBytes []byte) error {
 			logrus.Errorf("Invalid stats return: %s\n", string(statsJSON))
 			return err
 		}
-		mgr.statsLock.Lock()
-		defer mgr.statsLock.Unlock()
-		if err := copyStatsJSONTo(stats, &mgr.stats); err != nil {
+		mgrc.statsLock.Lock()
+		defer mgrc.statsLock.Unlock()
+		if err := copyStatsJSONTo(stats, &mgrc.stats); err != nil {
 			logrus.Errorln(err)
 			return err
 		}
@@ -229,27 +229,27 @@ func (mgr *manager) updateStats(respBytes []byte) error {
 	return nil
 }
 
-func (mgr *manager) Ping() error {
-	_, err := mgr.conn.Write([]byte("ping"))
+func (mgrc *managerClient) Ping() error {
+	_, err := mgrc.conn.Write([]byte("ping"))
 	if err != nil {
 		return err
 	}
 	var respBytes []byte
-	_, err = mgr.conn.Read(respBytes)
+	_, err = mgrc.conn.Read(respBytes)
 	if err != nil {
 		return err
 	}
-	if err := mgr.updateStats(respBytes); err != nil {
+	if err := mgrc.updateStats(respBytes); err != nil {
 		logrus.Errorln(err)
 	}
 	return nil
 }
 
-func (mgr *manager) Close() error {
-	if mgr.conn != nil {
-		mgr.close <- struct{}{}
-		err := mgr.conn.Close()
-		mgr.conn, mgr.close = nil, nil
+func (mgrc *managerClient) Close() error {
+	if mgrc.conn != nil {
+		mgrc.close <- struct{}{}
+		err := mgrc.conn.Close()
+		mgrc.conn, mgrc.close = nil, nil
 		return err
 	}
 	return fmt.Errorf("Close on empty connection.")
