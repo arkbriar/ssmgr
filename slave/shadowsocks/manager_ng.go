@@ -206,14 +206,15 @@ func NewManager(udpPort int) Manager {
 func (mgr *manager) StatRecvHandler(data []byte) {
 	cmd := string(data[:4])
 	if string(data[:4]) != "stat" {
-		log.Warnf("Unrecognized command %s, dropped\n", cmd)
+		log.Warnf("Unrecognized command %s, dropped", cmd)
 		return
 	}
 	body := bytes.TrimSpace(data[5:])
+	log.Debugln("Stat body is", string(body))
 	var stat map[string]int64
-	err := json.Unmarshal(body, stat)
+	err := json.Unmarshal(body, &stat)
 	if err != nil {
-		log.Warnln(err)
+		log.Warnln("Unmarshal error:", err)
 		return
 	}
 	port, traffic := -1, int64(-1)
@@ -223,7 +224,7 @@ func (mgr *manager) StatRecvHandler(data []byte) {
 		break
 	}
 	if port < 0 || traffic < 0 {
-		log.Warnf("Invalid stat!\n")
+		log.Warnf("Invalid stat!")
 		return
 	}
 	// Update statistic
@@ -231,7 +232,7 @@ func (mgr *manager) StatRecvHandler(data []byte) {
 	defer mgr.serverLock.RUnlock()
 	s, ok := mgr.servers[int32(port)]
 	if !ok {
-		log.Warnf("Server on port %d not found!\n", port)
+		log.Warnf("Server on port %d not found!", port)
 		return
 	}
 	s.stat.Store(Stat{Traffic: traffic})
@@ -252,15 +253,16 @@ func (mgr *manager) Listen() error {
 		buf := make([]byte, 1024)
 		for {
 			n, from, err := conn.ReadFromUDP(buf)
-			log.Debugf("Receving packet from %s: %s\n", from, buf[:n])
+			// the n-th is \x00 to indicate end
+			log.Debugf("Receving packet from %s: %s", from, buf[:n-1])
 			if err != nil {
 				log.Warnln(err)
 				continue
 			}
-			mgr.StatRecvHandler(buf[:n])
+			mgr.StatRecvHandler(buf[:n-1])
 		}
 	}()
-	log.Infof("Listening on 127.0.0.1:%d ...\n", port)
+	log.Infof("Listening on 127.0.0.1:%d ...", port)
 	return nil
 }
 
@@ -288,7 +290,7 @@ func (mgr *manager) prepareExec(s *Server) error {
 func (mgr *manager) deleteResidue(s *Server) error {
 	err := os.RemoveAll(s.runtime.path)
 	if err != nil {
-		log.Warnf("Can not delete managed server path %s\n", s.runtime.path)
+		log.Warnf("Can not delete managed server path %s", s.runtime.path)
 	}
 	return err
 }
@@ -309,7 +311,7 @@ func (mgr *manager) exec(s *Server) error {
 	}
 	s.runtime.logw = logw
 	s.runtime.cmd = cmd
-	log.Infof("ss-server running at process %d\n", cmd.Process.Pid)
+	log.Infof("ss-server running at process %d", cmd.Process.Pid)
 	return nil
 }
 
