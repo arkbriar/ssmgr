@@ -321,14 +321,14 @@ func (mgr *manager) exec(s *Server) error {
 	}
 	cmd := s.Command()
 	cmd.Stdout, cmd.Stderr = logw, logw
+	s.runtime.logw = logw
+	s.runtime.cmd = cmd
 	if err := cmd.Start(); err != nil {
 		return err
 	}
 	if err := s.SavePidFile(); err != nil {
 		log.Warnf("Can not save pid file, %s", err)
 	}
-	s.runtime.logw = logw
-	s.runtime.cmd = cmd
 	log.Infof("ss-server running at process %d", cmd.Process.Pid)
 	return nil
 }
