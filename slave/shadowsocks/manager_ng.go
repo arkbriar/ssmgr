@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"os"
@@ -95,9 +96,11 @@ type Server struct {
 	Stat     atomic.Value
 	options  serverOptions
 	runtime  struct {
-		configFile string
-		cancel     context.CancelFunc
-		path       string
+		path   string
+		cmd    *exec.Cmd
+		logw   io.WriteCloser
+		config string
+		cancel context.CancelFunc
 	}
 }
 
@@ -122,8 +125,8 @@ func (s *Server) Save(filename string) error {
 // Command constructs a new shadowsock server command
 func (s *Server) Command(ctx context.Context) *exec.Cmd {
 	var opts []string
-	if len(s.runtime.configFile) != 0 {
-		opts = []string{"-c " + s.runtime.configFile}
+	if len(s.runtime.config) != 0 {
+		opts = []string{"-c " + s.runtime.config}
 	} else {
 		opts = []string{"-s " + s.Host, fmt.Sprintf("-p %d", s.Port), "-m " + s.Method, "-k " + s.Password, fmt.Sprintf("-d %d", s.Timeout)}
 	}
@@ -134,7 +137,7 @@ func (s *Server) Command(ctx context.Context) *exec.Cmd {
 func (s *Server) clone() *Server {
 	copy := *s
 	copy.Stat.Store(s.GetStat())
-	copy.runtime.configFile = ""
+	copy.runtime.config = ""
 	copy.runtime.path = ""
 	copy.runtime.cancel = nil
 	return &copy
@@ -143,6 +146,11 @@ func (s *Server) clone() *Server {
 // GetStat returns the statistics of this server
 func (s *Server) GetStat() Stat {
 	return s.Stat.Load().(Stat)
+}
+
+// Process returns the running process / nil of server
+func (s *Server) Process() *os.Process {
+	return s.runtime.cmd.Process
 }
 
 // Stat represents the statistics collected from a shadowsocks server
@@ -262,7 +270,7 @@ func (mgr *manager) prepareExec(s *Server) error {
 	if err != nil {
 		return err
 	}
-	s.runtime.configFile = configFile
+	s.runtime.config = configFile
 	return nil
 }
 
@@ -279,21 +287,27 @@ func (mgr *manager) exec(s *Server) error {
 	if err != nil {
 		return err
 	}
-	logWriter, err := os.Open(path.Join(s.runtime.path, "ss_server.log"))
+	logw, err := os.Open(path.Join(s.runtime.path, "ss_server.log"))
 	if err != nil {
 		return err
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	s.runtime.cancel = cancel
 	cmd := s.Command(ctx)
-	cmd.Stdout = logWriter
-	cmd.Stderr = logWriter
-	return cmd.Start()
+	cmd.Stdout, cmd.Stderr = logw, logw
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	s.runtime.cancel = cancel
+	s.runtime.logw = logw
+	s.runtime.cmd = cmd
+	log.Infof("ss-server running at process %d\n", cmd.Process.Pid)
+	return nil
 }
 
 func (mgr *manager) kill(s *Server) {
-	mgr.deleteResidue(s)
 	s.runtime.cancel()
+	s.runtime.logw.Close()
+	mgr.deleteResidue(s)
 }
 
 func (mgr *manager) Add(s *Server) error {
