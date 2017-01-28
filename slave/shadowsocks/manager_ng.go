@@ -28,7 +28,6 @@ type serverOptions struct {
 	Interface      string
 	FireWall       bool
 	Verbose        bool
-	ConfigFile     string
 }
 
 func (o *serverOptions) BuildArgs() []string {
@@ -83,6 +82,7 @@ func ValidateEncryptMethod(m string) bool {
 var (
 	ErrServerNotFound = errors.New("Server not found.")
 	ErrInvalidServer  = errors.New("Invalid server.")
+	ErrServerExists   = errors.New("Server already exists.")
 )
 
 // Server is a struct describes a shadowsocks server.
@@ -93,9 +93,12 @@ type Server struct {
 	Method   string `json:"method"`
 	Timeout  int    `json:"timeout"`
 	Stat     atomic.Value
-	options  *serverOptions
-	cancel   context.CancelFunc
-	path     string
+	options  serverOptions
+	runtime  struct {
+		configFile string
+		cancel     context.CancelFunc
+		path       string
+	}
 }
 
 // Valid checks if it is a valid server configuration.
@@ -119,20 +122,18 @@ func (s *Server) Save(filename string) error {
 // Command constructs a new shadowsock server command
 func (s *Server) Command(ctx context.Context) *exec.Cmd {
 	var opts []string
-	if len(s.options.ConfigFile) != 0 {
-		opts = []string{"-c " + s.options.ConfigFile}
+	if len(s.runtime.configFile) != 0 {
+		opts = []string{"-c " + s.runtime.configFile}
 	} else {
 		opts = []string{"-s " + s.Host, fmt.Sprintf("-p %d", s.Port), "-m " + s.Method, "-k " + s.Password, fmt.Sprintf("-d %d", s.Timeout)}
 	}
-	if s.options != nil {
-		opts = append(opts, s.options.BuildArgs()...)
-	}
+	opts = append(opts, s.options.BuildArgs()...)
 	return exec.CommandContext(ctx, "ss-server", opts...)
 }
 
 func (s *Server) clone() *Server {
 	copy := *s
-	copy.cancel = nil
+	copy.runtime.cancel = nil
 	return &copy
 }
 
@@ -146,29 +147,33 @@ type Stat struct {
 // Manager is an interface provides a few methods to manager shadowsocks
 // servers.
 type Manager interface {
-	Listen(port int32) error
+	// Listen listens udp connection on localhost:{udpPort} and handles the stats update
+	// sent from ss-server.
+	Listen() error
+	// Add adds a ss-server with given arguments.
 	Add(s *Server) error
+	// Remove kills the ss-server if found.
 	Remove(port int32) error
+	// ListServers list the active ss-servers.
 	ListServers() map[int32]*Server
+	// GetServer gets a clone of `Server` struct of given port.
 	GetServer(port int32) (*Server, error)
 }
-
-var (
-	home = os.Getenv("HOME")
-)
 
 // Implementation of `Manager` interface.
 type manager struct {
 	serverLock sync.RWMutex
 	servers    map[int32]*Server
 	path       string
+	udpPort    int
 }
 
 // NewManager returns a new manager.
-func NewManager() Manager {
+func NewManager(udpPort int) Manager {
 	return &manager{
 		servers: make(map[int32]*Server),
-		path:    path.Join(home, ".shadowsocks_manager"),
+		path:    path.Join(os.Getenv("HOME"), ".shadowsocks_manager"),
+		udpPort: udpPort,
 	}
 }
 
@@ -211,7 +216,8 @@ func (mgr *manager) StatRecvHandler(c net.Conn) {
 	s.Stat.Store(Stat{Traffic: traffic})
 }
 
-func (mgr *manager) Listen(port int32) error {
+func (mgr *manager) Listen() error {
+	port := mgr.udpPort
 	l, err := net.Listen("udp", fmt.Sprintf("localhost:%d", port))
 	if err != nil {
 		return err
@@ -231,27 +237,31 @@ func (mgr *manager) Listen(port int32) error {
 }
 
 func (mgr *manager) prepareExec(s *Server) error {
-	s.path = path.Join(mgr.path, fmt.Sprint(s.Port))
+	pathPrefix := path.Join(mgr.path, fmt.Sprint(s.Port))
+	s.runtime.path = pathPrefix
 
-	s.options.PidFile = path.Join(s.path, "ss_server.pid")
-	s.options.ManagerAddress = "localhost"
+	s.options.PidFile = path.Join(pathPrefix, "ss_server.pid")
+	s.options.ManagerAddress = fmt.Sprintf("localhost:%d", mgr.udpPort)
 	s.options.Verbose = true
 
-	err := os.MkdirAll(s.path, 0644)
+	err := os.MkdirAll(pathPrefix, 0644)
 	if err != nil {
 		return err
 	}
-	configFile := path.Join(s.path, "ss_server.json")
+	configFile := path.Join(pathPrefix, "ss_server.json")
 	err = s.Save(configFile)
 	if err != nil {
 		return err
 	}
-	s.options.ConfigFile = configFile
+	s.runtime.configFile = configFile
 	return nil
 }
 
 func (mgr *manager) deleteResidue(s *Server) error {
-	err := os.RemoveAll(s.path)
+	err := os.RemoveAll(s.runtime.path)
+	if err != nil {
+		log.Warnf("Can not delete managed server path %s\n", s.runtime.path)
+	}
 	return err
 }
 
@@ -260,12 +270,12 @@ func (mgr *manager) exec(s *Server) error {
 	if err != nil {
 		return err
 	}
-	logWriter, err := os.Open(path.Join(s.path, "ss_server.log"))
+	logWriter, err := os.Open(path.Join(s.runtime.path, "ss_server.log"))
 	if err != nil {
 		return err
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	s.cancel = cancel
+	s.runtime.cancel = cancel
 	cmd := s.Command(ctx)
 	cmd.Stdout = logWriter
 	cmd.Stderr = logWriter
@@ -273,16 +283,16 @@ func (mgr *manager) exec(s *Server) error {
 }
 
 func (mgr *manager) kill(s *Server) {
-	err := mgr.deleteResidue(s)
-	if err != nil {
-		log.Warnf("Can not delete managed server path %s\n", s.path)
-	}
-	s.cancel()
+	mgr.deleteResidue(s)
+	s.runtime.cancel()
 }
 
 func (mgr *manager) Add(s *Server) error {
 	mgr.serverLock.Lock()
 	defer mgr.serverLock.Unlock()
+	if _, ok := mgr.servers[s.Port]; ok {
+		return ErrServerExists
+	}
 	if !s.Valid() {
 		return ErrInvalidServer
 	}
