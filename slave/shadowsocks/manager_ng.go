@@ -163,7 +163,7 @@ type Stat struct {
 // Manager is an interface provides a few methods to manager shadowsocks
 // servers.
 type Manager interface {
-	// Listen listens udp connection on localhost:{udpPort} and handles the stats update
+	// Listen listens udp connection on 127.0.0.1:{udpPort} and handles the stats update
 	// sent from ss-server.
 	Listen() error
 	// Add adds a ss-server with given arguments.
@@ -234,7 +234,7 @@ func (mgr *manager) StatRecvHandler(c net.Conn) {
 
 func (mgr *manager) Listen() error {
 	port := mgr.udpPort
-	l, err := net.Listen("udp", fmt.Sprintf("localhost:%d", port))
+	l, err := net.Listen("udp", fmt.Sprintf("127.0.0.1:%d", port))
 	if err != nil {
 		return err
 	}
@@ -249,7 +249,7 @@ func (mgr *manager) Listen() error {
 			go mgr.StatRecvHandler(conn)
 		}
 	}()
-	log.Infof("Listening on localhost:%d ...\n", port)
+	log.Infof("Listening on 127.0.0.1:%d ...\n", port)
 	return nil
 }
 
@@ -258,7 +258,7 @@ func (mgr *manager) prepareExec(s *Server) error {
 	s.runtime.path = pathPrefix
 
 	s.options.PidFile = path.Join(pathPrefix, "ss_server.pid")
-	s.options.ManagerAddress = fmt.Sprintf("localhost:%d", mgr.udpPort)
+	s.options.ManagerAddress = fmt.Sprintf("127.0.0.1:%d", mgr.udpPort)
 	s.options.Verbose = true
 
 	err := os.MkdirAll(pathPrefix, 0644)

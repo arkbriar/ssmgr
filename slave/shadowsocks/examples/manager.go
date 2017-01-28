@@ -9,7 +9,7 @@ import (
 func main() {
 	mgr := ss.NewManager(6001)
 	if err := mgr.Listen(); err != nil {
-		log.Panicln("Can not listen udp address localhost:6001, ", err)
+		log.Panicln("Can not listen udp address 127.0.0.1:6001, ", err)
 	}
 	newS := &ss.Server{
 		Host:     "0.0.0.0",
