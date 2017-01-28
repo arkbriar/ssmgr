@@ -43,13 +43,13 @@ func (o *serverOptions) BuildArgs() []string {
 		opts = append(opts, "-A")
 	}
 	if len(o.NameServer) != 0 {
-		opts = append(opts, "-d "+o.NameServer)
+		opts = append(opts, "-d", o.NameServer)
 	}
 	if len(o.PidFile) != 0 {
-		opts = append(opts, "-f "+o.PidFile)
+		opts = append(opts, "-f", o.PidFile)
 	}
 	if len(o.ManagerAddress) != 0 {
-		opts = append(opts, "--manager-address "+o.ManagerAddress)
+		opts = append(opts, "--manager-address", o.ManagerAddress)
 	}
 	if o.FireWall {
 		opts = append(opts, "--firewall")
@@ -124,9 +124,9 @@ func (s *Server) Save(filename string) error {
 func (s *Server) opts() []string {
 	var opts []string
 	if len(s.runtime.config) != 0 {
-		opts = []string{"-c " + s.runtime.config}
+		opts = []string{"-c", s.runtime.config}
 	} else {
-		opts = []string{"-s " + s.Host, fmt.Sprintf("-p %d", s.Port), "-m " + s.Method, "-k " + s.Password, fmt.Sprintf("-d %d", s.Timeout)}
+		opts = []string{"-s", s.Host, "-p", fmt.Sprint(s.Port), "-m", s.Method, "-k", s.Password, "-d", fmt.Sprint(s.Timeout)}
 	}
 	opts = append(opts, s.options.BuildArgs()...)
 	return opts
@@ -145,8 +145,7 @@ func (s *Server) String() string {
 func (s *Server) clone() *Server {
 	copy := *s
 	copy.stat.Store(s.GetStat())
-	copy.runtime.config = ""
-	copy.runtime.path = ""
+	copy.runtime.logw = nil
 	return &copy
 }
 
