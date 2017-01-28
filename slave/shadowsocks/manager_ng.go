@@ -145,7 +145,11 @@ func (s *Server) clone() *Server {
 
 // GetStat returns the statistics of this server
 func (s *Server) GetStat() Stat {
-	return s.Stat.Load().(Stat)
+	stat := s.Stat.Load()
+	if stat == nil {
+		return Stat{}
+	}
+	return stat.(Stat)
 }
 
 // Process returns the running process / nil of server
