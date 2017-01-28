@@ -193,12 +193,7 @@ func NewManager(udpPort int) Manager {
 	}
 }
 
-func (mgr *manager) StatRecvHandler(c net.Conn) {
-	data, err := ioutil.ReadAll(c)
-	if err != nil {
-		log.Warnln(err)
-		return
-	}
+func (mgr *manager) StatRecvHandler(data []byte) {
 	cmd := string(data[:4])
 	if string(data[:4]) != "stat:" {
 		log.Warnf("Unrecognized command %s, dropped\n", cmd)
@@ -206,7 +201,7 @@ func (mgr *manager) StatRecvHandler(c net.Conn) {
 	}
 	body := bytes.TrimSpace(data[5:])
 	var stat map[string]int64
-	err = json.Unmarshal(body, stat)
+	err := json.Unmarshal(body, stat)
 	if err != nil {
 		log.Warnln(err)
 		return
@@ -234,19 +229,25 @@ func (mgr *manager) StatRecvHandler(c net.Conn) {
 
 func (mgr *manager) Listen() error {
 	port := mgr.udpPort
-	l, err := net.Listen("udp", fmt.Sprintf("127.0.0.1:%d", port))
+	addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("127.0.0.1:%d", port))
+	if err != nil {
+		return err
+	}
+	conn, err := net.ListenUDP("udp", addr)
 	if err != nil {
 		return err
 	}
 	go func() {
-		defer l.Close()
+		defer conn.Close()
+		buf := make([]byte, 1024)
 		for {
-			conn, err := l.Accept()
+			n, from, err := conn.ReadFromUDP(buf)
+			log.Debugf("Receving packet from %s: %s\n", from, buf[:n])
 			if err != nil {
 				log.Warnln(err)
 				continue
 			}
-			go mgr.StatRecvHandler(conn)
+			mgr.StatRecvHandler(buf[:n])
 		}
 	}()
 	log.Infof("Listening on 127.0.0.1:%d ...\n", port)
@@ -261,7 +262,7 @@ func (mgr *manager) prepareExec(s *Server) error {
 	s.options.ManagerAddress = fmt.Sprintf("127.0.0.1:%d", mgr.udpPort)
 	s.options.Verbose = true
 
-	err := os.MkdirAll(pathPrefix, 0644)
+	err := os.MkdirAll(pathPrefix, 0744)
 	if err != nil {
 		return err
 	}
