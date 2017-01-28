@@ -1,14 +1,19 @@
 package shadowsocks
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"os/exec"
 	"path"
+	"strconv"
 	"sync"
+	"sync/atomic"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -74,6 +79,12 @@ func ValidateEncryptMethod(m string) bool {
 	return false
 }
 
+// Errors of `Manager`
+var (
+	ErrServerNotFound = errors.New("Server not found.")
+	ErrInvalidServer  = errors.New("Invalid server.")
+)
+
 // Server is a struct describes a shadowsocks server.
 type Server struct {
 	Host     string `json:"server"`
@@ -81,14 +92,14 @@ type Server struct {
 	Password string `json:"password"`
 	Method   string `json:"method"`
 	Timeout  int    `json:"timeout"`
-	Stat     *Stat
+	Stat     atomic.Value
 	options  *serverOptions
 	cancel   context.CancelFunc
 	path     string
 }
 
-// Validate checks if it is a valid server configuration.
-func (s *Server) Validate() bool {
+// Valid checks if it is a valid server configuration.
+func (s *Server) Valid() bool {
 	return len(s.Host) != 0 && s.Port > 0 && s.Port < 65536 && len(s.Password) >= 8 && ValidateEncryptMethod(s.Method) && s.Timeout > 0
 }
 
@@ -119,6 +130,12 @@ func (s *Server) Command(ctx context.Context) *exec.Cmd {
 	return exec.CommandContext(ctx, "ss-server", opts...)
 }
 
+func (s *Server) clone() *Server {
+	copy := *s
+	copy.cancel = nil
+	return &copy
+}
+
 // Stat represents the statistics collected from a shadowsocks server
 type Stat struct {
 	Traffic int64 `json:"traffic"` // Transfered traffic in bytes
@@ -129,10 +146,11 @@ type Stat struct {
 // Manager is an interface provides a few methods to manager shadowsocks
 // servers.
 type Manager interface {
+	Listen(port int32) error
 	Add(s *Server) error
 	Remove(port int32) error
-	ListServers() ([]Server, error)
-	GetServer(port int32) (Server, error)
+	ListServers() map[int32]*Server
+	GetServer(port int32) (*Server, error)
 }
 
 var (
@@ -154,15 +172,62 @@ func NewManager() Manager {
 	}
 }
 
-func (mgr *manager) updateStat(port int32, stat *Stat) {
-	mgr.serverLock.Lock()
-	defer mgr.serverLock.Unlock()
-	s, ok := mgr.servers[port]
-	if !ok {
-		log.Warnf("There's no server listening on port %d\n", port)
+func (mgr *manager) StatRecvHandler(c net.Conn) {
+	data, err := ioutil.ReadAll(c)
+	if err != nil {
+		log.Warnln(err)
 		return
 	}
-	*s.Stat = *stat
+	cmd := string(data[:4])
+	if string(data[:4]) != "stat:" {
+		log.Warnf("Unrecognized command %s, dropped\n", cmd)
+		return
+	}
+	body := bytes.TrimSpace(data[5:])
+	var stat map[string]int64
+	err = json.Unmarshal(body, stat)
+	if err != nil {
+		log.Warnln(err)
+		return
+	}
+	port, traffic := -1, int64(-1)
+	for portS, trafficS := range stat {
+		port, _ = strconv.Atoi(portS)
+		traffic = trafficS
+		break
+	}
+	if port < 0 || traffic < 0 {
+		log.Warnf("Invalid stat!\n")
+		return
+	}
+	// Update statistic
+	mgr.serverLock.RLock()
+	defer mgr.serverLock.RUnlock()
+	s, ok := mgr.servers[int32(port)]
+	if !ok {
+		log.Warnf("Server on port %d not found!\n", port)
+		return
+	}
+	s.Stat.Store(Stat{Traffic: traffic})
+}
+
+func (mgr *manager) Listen(port int32) error {
+	l, err := net.Listen("udp", fmt.Sprintf("localhost:%d", port))
+	if err != nil {
+		return err
+	}
+	go func() {
+		defer l.Close()
+		for {
+			conn, err := l.Accept()
+			if err != nil {
+				log.Warnln(err)
+			}
+			go mgr.StatRecvHandler(conn)
+		}
+	}()
+	log.Infof("Listening on localhost:%d ...\n", port)
+	return nil
 }
 
 func (mgr *manager) prepareExec(s *Server) error {
@@ -191,6 +256,10 @@ func (mgr *manager) deleteResidue(s *Server) error {
 }
 
 func (mgr *manager) exec(s *Server) error {
+	err := mgr.prepareExec(s)
+	if err != nil {
+		return err
+	}
 	logWriter, err := os.Open(path.Join(s.path, "ss_server.log"))
 	if err != nil {
 		return err
@@ -212,17 +281,47 @@ func (mgr *manager) kill(s *Server) {
 }
 
 func (mgr *manager) Add(s *Server) error {
+	mgr.serverLock.Lock()
+	defer mgr.serverLock.Unlock()
+	if !s.Valid() {
+		return ErrInvalidServer
+	}
+	err := mgr.exec(s)
+	if err != nil {
+		return err
+	}
+	mgr.servers[s.Port] = s
 	return nil
 }
 
 func (mgr *manager) Remove(port int32) error {
+	mgr.serverLock.Lock()
+	defer mgr.serverLock.Unlock()
+	s, ok := mgr.servers[port]
+	if !ok {
+		return ErrServerNotFound
+	}
+	delete(mgr.servers, port)
+	mgr.kill(s)
 	return nil
 }
 
-func (mgr *manager) ListServers() ([]Server, error) {
-	return nil, nil
+func (mgr *manager) ListServers() map[int32]*Server {
+	mgr.serverLock.RLock()
+	defer mgr.serverLock.RUnlock()
+	currentServers := make(map[int32]*Server)
+	for port, s := range mgr.servers {
+		currentServers[port] = s.clone()
+	}
+	return currentServers
 }
 
-func (mgr *manager) GetServer(port int32) (Server, error) {
-	return Server{}, nil
+func (mgr *manager) GetServer(port int32) (*Server, error) {
+	mgr.serverLock.RLock()
+	defer mgr.serverLock.RUnlock()
+	s, ok := mgr.servers[port]
+	if !ok {
+		return nil, ErrServerNotFound
+	}
+	return s.clone(), nil
 }
