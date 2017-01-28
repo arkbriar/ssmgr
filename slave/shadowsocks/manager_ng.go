@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -93,7 +94,7 @@ type Server struct {
 	Password string `json:"password"`
 	Method   string `json:"method"`
 	Timeout  int    `json:"timeout"`
-	Stat     atomic.Value
+	stat     atomic.Value
 	options  serverOptions
 	runtime  struct {
 		path   string
@@ -122,8 +123,7 @@ func (s *Server) Save(filename string) error {
 	return nil
 }
 
-// Command constructs a new shadowsock server command
-func (s *Server) Command(ctx context.Context) *exec.Cmd {
+func (s *Server) opts() []string {
 	var opts []string
 	if len(s.runtime.config) != 0 {
 		opts = []string{"-c " + s.runtime.config}
@@ -131,12 +131,22 @@ func (s *Server) Command(ctx context.Context) *exec.Cmd {
 		opts = []string{"-s " + s.Host, fmt.Sprintf("-p %d", s.Port), "-m " + s.Method, "-k " + s.Password, fmt.Sprintf("-d %d", s.Timeout)}
 	}
 	opts = append(opts, s.options.BuildArgs()...)
-	return exec.CommandContext(ctx, "ss-server", opts...)
+	return opts
+}
+
+// Command constructs a new shadowsock server command
+func (s *Server) Command(ctx context.Context) *exec.Cmd {
+	return exec.CommandContext(ctx, "ss-server", s.opts()...)
+}
+
+// String returns the command line string
+func (s *Server) String() string {
+	return fmt.Sprintf("ss-server %s", strings.Join(s.opts(), " "))
 }
 
 func (s *Server) clone() *Server {
 	copy := *s
-	copy.Stat.Store(s.GetStat())
+	copy.stat.Store(s.GetStat())
 	copy.runtime.config = ""
 	copy.runtime.path = ""
 	copy.runtime.cancel = nil
@@ -145,7 +155,7 @@ func (s *Server) clone() *Server {
 
 // GetStat returns the statistics of this server
 func (s *Server) GetStat() Stat {
-	stat := s.Stat.Load()
+	stat := s.stat.Load()
 	if stat == nil {
 		return Stat{}
 	}
@@ -228,7 +238,7 @@ func (mgr *manager) StatRecvHandler(data []byte) {
 		log.Warnf("Server on port %d not found!\n", port)
 		return
 	}
-	s.Stat.Store(Stat{Traffic: traffic})
+	s.stat.Store(Stat{Traffic: traffic})
 }
 
 func (mgr *manager) Listen() error {
