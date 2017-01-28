@@ -133,8 +133,16 @@ func (s *Server) Command(ctx context.Context) *exec.Cmd {
 
 func (s *Server) clone() *Server {
 	copy := *s
+	copy.Stat.Store(s.GetStat())
+	copy.runtime.configFile = ""
+	copy.runtime.path = ""
 	copy.runtime.cancel = nil
 	return &copy
+}
+
+// GetStat returns the statistics of this server
+func (s *Server) GetStat() Stat {
+	return s.Stat.Load().(Stat)
 }
 
 // Stat represents the statistics collected from a shadowsocks server
