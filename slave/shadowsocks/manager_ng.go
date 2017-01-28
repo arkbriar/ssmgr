@@ -15,8 +15,10 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/arkbriar/ss-mgr/slave/shadowsocks/process"
 )
 
 type serverOptions struct {
@@ -127,8 +129,9 @@ func (s *Server) Save(filename string) error {
 // SavePidFile saves current pid to a file (s.options.PidFile). This method
 // is to replace ss-server's '-f' option.
 func (s *Server) SavePidFile() error {
-	if len(s.options.PidFile) != 0 && s.Process() != nil {
-		return ioutil.WriteFile(s.options.PidFile, []byte(fmt.Sprint(s.Process().Pid)), 0644)
+	proc := s.Process()
+	if len(s.options.PidFile) != 0 && proc != nil {
+		return ioutil.WriteFile(s.options.PidFile, []byte(fmt.Sprint(proc.Pid)), 0644)
 	}
 	return nil
 }
@@ -178,6 +181,12 @@ func (s *Server) Process() *os.Process {
 	return nil
 }
 
+// Alive returns if the server is alive
+func (s *Server) Alive() bool {
+	proc := s.Process()
+	return proc != nil && process.Alive(proc.Pid)
+}
+
 // Stat represents the statistics collected from a shadowsocks server
 type Stat struct {
 	Traffic int64 `json:"traffic"` // Transfered traffic in bytes
@@ -207,6 +216,7 @@ type manager struct {
 	servers    map[int32]*Server
 	path       string
 	udpPort    int
+	execLock   sync.RWMutex
 }
 
 // NewManager returns a new manager.
@@ -283,7 +293,6 @@ func (mgr *manager) Listen() error {
 
 func (mgr *manager) prepareExec(s *Server) error {
 	pathPrefix := path.Join(mgr.path, fmt.Sprint(s.Port))
-	s.runtime.path = pathPrefix
 
 	s.options.PidFile = path.Join(pathPrefix, "ss_server.pid")
 	s.options.ManagerAddress = fmt.Sprintf("127.0.0.1:%d", mgr.udpPort)
@@ -298,6 +307,7 @@ func (mgr *manager) prepareExec(s *Server) error {
 	if err != nil {
 		return err
 	}
+	s.runtime.path = pathPrefix
 	s.runtime.config = configFile
 	return nil
 }
@@ -346,6 +356,8 @@ func (mgr *manager) kill(s *Server) {
 func (mgr *manager) Add(s *Server) error {
 	mgr.serverLock.Lock()
 	defer mgr.serverLock.Unlock()
+	mgr.execLock.Lock()
+	defer mgr.execLock.Unlock()
 	if _, ok := mgr.servers[s.Port]; ok {
 		return ErrServerExists
 	}
@@ -360,9 +372,17 @@ func (mgr *manager) Add(s *Server) error {
 	return nil
 }
 
+func (mgr *manager) remove(port int32) {
+	mgr.serverLock.Lock()
+	defer mgr.serverLock.Unlock()
+	delete(mgr.servers, port)
+}
+
 func (mgr *manager) Remove(port int32) error {
 	mgr.serverLock.Lock()
 	defer mgr.serverLock.Unlock()
+	mgr.execLock.Lock()
+	defer mgr.execLock.Unlock()
 	s, ok := mgr.servers[port]
 	if !ok {
 		return ErrServerNotFound
@@ -390,4 +410,23 @@ func (mgr *manager) GetServer(port int32) (*Server, error) {
 		return nil, ErrServerNotFound
 	}
 	return s.clone(), nil
+}
+
+// ServerMonitor provide a way to monitor all server processes
+func (mgr *manager) ServerMonitor() {
+	for {
+		time.Sleep(5 * time.Second)
+		for _, s := range mgr.ListServers() {
+			if !s.Alive() {
+				mgr.execLock.Lock()
+				if err := mgr.exec(s); err != nil {
+					log.Warn("Can not restart server", s, ", error is", err)
+					log.Warn("Deleting server...")
+					mgr.deleteResidue(s)
+					mgr.remove(s.Port)
+				}
+				mgr.execLock.Unlock()
+			}
+		}
+	}
 }
