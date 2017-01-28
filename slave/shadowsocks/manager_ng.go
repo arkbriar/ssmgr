@@ -228,6 +228,7 @@ func (mgr *manager) Listen() error {
 			conn, err := l.Accept()
 			if err != nil {
 				log.Warnln(err)
+				continue
 			}
 			go mgr.StatRecvHandler(conn)
 		}
