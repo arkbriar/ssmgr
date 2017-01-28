@@ -2,7 +2,6 @@ package shadowsocks
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -101,7 +100,6 @@ type Server struct {
 		cmd    *exec.Cmd
 		logw   io.WriteCloser
 		config string
-		cancel context.CancelFunc
 	}
 }
 
@@ -135,8 +133,8 @@ func (s *Server) opts() []string {
 }
 
 // Command constructs a new shadowsock server command
-func (s *Server) Command(ctx context.Context) *exec.Cmd {
-	return exec.CommandContext(ctx, "ss-server", s.opts()...)
+func (s *Server) Command() *exec.Cmd {
+	return exec.Command("ss-server", s.opts()...)
 }
 
 // String returns the command line string
@@ -149,7 +147,6 @@ func (s *Server) clone() *Server {
 	copy.stat.Store(s.GetStat())
 	copy.runtime.config = ""
 	copy.runtime.path = ""
-	copy.runtime.cancel = nil
 	return &copy
 }
 
@@ -306,13 +303,11 @@ func (mgr *manager) exec(s *Server) error {
 	if err != nil {
 		return err
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	cmd := s.Command(ctx)
+	cmd := s.Command()
 	cmd.Stdout, cmd.Stderr = logw, logw
 	if err := cmd.Start(); err != nil {
 		return err
 	}
-	s.runtime.cancel = cancel
 	s.runtime.logw = logw
 	s.runtime.cmd = cmd
 	log.Infof("ss-server running at process %d\n", cmd.Process.Pid)
@@ -320,7 +315,9 @@ func (mgr *manager) exec(s *Server) error {
 }
 
 func (mgr *manager) kill(s *Server) {
-	s.runtime.cancel()
+	if err := s.Process().Kill(); err != nil {
+		log.Warnln(err)
+	}
 	s.runtime.logw.Close()
 	mgr.deleteResidue(s)
 }
