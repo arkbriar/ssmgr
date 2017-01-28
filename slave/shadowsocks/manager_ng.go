@@ -115,7 +115,7 @@ func (s *Server) Valid() bool {
 
 // Save saves this server's configuration to file in JSON.
 func (s *Server) Save(filename string) error {
-	data, err := json.Marshal(s)
+	data, err := json.MarshalIndent(s, "", "  ")
 	if err != nil {
 		return err
 	}
