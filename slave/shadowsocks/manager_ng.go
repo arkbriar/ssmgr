@@ -22,6 +22,8 @@ import (
 )
 
 type serverOptions struct {
+	UDPRelay       bool
+	IPv6First      bool
 	MPTCP          bool
 	TCPFastOpen    bool
 	Auth           bool
@@ -35,6 +37,12 @@ type serverOptions struct {
 
 func (o *serverOptions) BuildArgs() []string {
 	opts := make([]string, 0)
+	if o.UDPRelay {
+		opts = append(opts, "-u")
+	}
+	if o.IPv6First {
+		opts = append(opts, "-6")
+	}
 	if o.MPTCP {
 		opts = append(opts, "--mptcp")
 	}
@@ -294,6 +302,7 @@ func (mgr *manager) Listen() error {
 func (mgr *manager) prepareExec(s *Server) error {
 	pathPrefix := path.Join(mgr.path, fmt.Sprint(s.Port))
 
+	s.options.UDPRelay = true
 	s.options.PidFile = path.Join(pathPrefix, "ss_server.pid")
 	s.options.ManagerAddress = fmt.Sprintf("127.0.0.1:%d", mgr.udpPort)
 	s.options.Verbose = true
