@@ -111,7 +111,7 @@ type Server struct {
 	options  serverOptions
 	runtime  struct {
 		path   string
-		cmd    *exec.Cmd
+		proc   *os.Process
 		logw   io.WriteCloser
 		config string
 	}
@@ -132,6 +132,12 @@ func (s *Server) Save(filename string) error {
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+// Restore restores the configuration to server fields.
+func (s *Server) Restore(filename string) error {
+	// TODO(arkbriar@gmail.com) Complete it.
 	return nil
 }
 
@@ -184,10 +190,7 @@ func (s *Server) GetStat() Stat {
 
 // Process returns the running process / nil of server
 func (s *Server) Process() *os.Process {
-	if s.runtime.cmd != nil {
-		return s.runtime.cmd.Process
-	}
-	return nil
+	return s.runtime.proc
 }
 
 // Alive returns if the server is alive
@@ -219,6 +222,8 @@ type Manager interface {
 	ListServers() map[int32]*Server
 	// GetServer gets a clone of `Server` struct of given port.
 	GetServer(port int32) (*Server, error)
+	// Restore all stopped servers.
+	Restore() error
 }
 
 // Implementation of `Manager` interface.
@@ -255,7 +260,6 @@ func (mgr *manager) handleStat(data []byte) {
 		return
 	}
 	body := bytes.TrimSpace(data[5:])
-	log.Debugln("Stat body is", string(body))
 	var stat map[string]int64
 	err := json.Unmarshal(body, &stat)
 	if err != nil {
@@ -365,10 +369,10 @@ func (mgr *manager) exec(s *Server) error {
 	cmd := s.Command()
 	cmd.Stdout, cmd.Stderr = logw, logw
 	s.runtime.logw = logw
-	s.runtime.cmd = cmd
 	if err := cmd.Start(); err != nil {
 		return err
 	}
+	s.runtime.proc = cmd.Process
 	if err := s.SavePidFile(); err != nil {
 		log.Warnf("Can not save pid file, %s", err)
 	}
@@ -383,7 +387,7 @@ func (mgr *manager) kill(s *Server) {
 		log.Warnln(err)
 	}
 	// release process's resource
-	s.runtime.cmd.Wait()
+	s.runtime.proc.Wait()
 	s.runtime.logw.Close()
 	mgr.deleteResidue(s)
 }
@@ -397,11 +401,13 @@ func (mgr *manager) Add(s *Server) error {
 	if !s.Valid() {
 		return ErrInvalidServer
 	}
+	s = s.clone()
 	err := mgr.exec(s)
 	if err != nil {
 		return err
 	}
 	mgr.servers[s.Port] = s
+	log.Debugf("Adding server: %s", s)
 	return nil
 }
 
@@ -420,6 +426,7 @@ func (mgr *manager) Remove(port int32) error {
 	}
 	delete(mgr.servers, port)
 	mgr.kill(s)
+	log.Debugf("Removing server: %s", s)
 	return nil
 }
 
@@ -446,6 +453,7 @@ func (mgr *manager) GetServer(port int32) (*Server, error) {
 func (mgr *manager) riseDead() {
 	for _, s := range mgr.ListServers() {
 		if !s.Alive() {
+			log.Warnf("Server on port %d should be alive, rising it", s.Port)
 			if err := mgr.exec(s); err != nil {
 				log.Warn("Can not restart server", s, ",", err)
 				log.Warn("Deleting server...")
@@ -466,4 +474,10 @@ func (mgr *manager) WatchDaemon(ctx context.Context) {
 			mgr.riseDead()
 		}
 	}
+}
+
+// Restore starts all ss-servers that leaves their dirs in manager.path
+func (mgr *manager) Restore() error {
+	// TODO(arkbriar@gmail.com) Complete it.
+	return nil
 }
