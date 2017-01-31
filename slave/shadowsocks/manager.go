@@ -2,6 +2,7 @@ package shadowsocks
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -110,7 +111,7 @@ type Server struct {
 	options  serverOptions
 	runtime  struct {
 		path   string
-		cmd    *exec.Cmd
+		proc   *os.Process
 		logw   io.WriteCloser
 		config string
 	}
@@ -131,6 +132,12 @@ func (s *Server) Save(filename string) error {
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+// Restore restores the configuration to server fields.
+func (s *Server) Restore(filename string) error {
+	// TODO(arkbriar@gmail.com) Complete it.
 	return nil
 }
 
@@ -183,10 +190,7 @@ func (s *Server) GetStat() Stat {
 
 // Process returns the running process / nil of server
 func (s *Server) Process() *os.Process {
-	if s.runtime.cmd != nil {
-		return s.runtime.cmd.Process
-	}
-	return nil
+	return s.runtime.proc
 }
 
 // Alive returns if the server is alive
@@ -207,7 +211,9 @@ type Stat struct {
 type Manager interface {
 	// Listen listens udp connection on 127.0.0.1:{udpPort} and handles the stats update
 	// sent from ss-server.
-	Listen() error
+	Listen(ctx context.Context) error
+	// WatchDaemon is a daemon that watches all server processes and rises dead servers.
+	WatchDaemon(ctx context.Context)
 	// Add adds a ss-server with given arguments.
 	Add(s *Server) error
 	// Remove kills the ss-server if found.
@@ -216,15 +222,17 @@ type Manager interface {
 	ListServers() map[int32]*Server
 	// GetServer gets a clone of `Server` struct of given port.
 	GetServer(port int32) (*Server, error)
+	// Restore all stopped servers.
+	Restore() error
 }
 
 // Implementation of `Manager` interface.
 type manager struct {
-	serverLock sync.RWMutex
-	servers    map[int32]*Server
-	path       string
-	udpPort    int
-	execLock   sync.RWMutex
+	serverMu sync.RWMutex
+	servers  map[int32]*Server
+	path     string
+	udpPort  int
+	execLock sync.Mutex
 }
 
 // NewManager returns a new manager.
@@ -236,14 +244,22 @@ func NewManager(udpPort int) Manager {
 	}
 }
 
-func (mgr *manager) StatRecvHandler(data []byte) {
+// lockExec gets the command executing lock.
+func (mgr *manager) lockExec() {
+	mgr.execLock.Lock()
+}
+
+func (mgr *manager) unlockExec() {
+	mgr.execLock.Unlock()
+}
+
+func (mgr *manager) handleStat(data []byte) {
 	cmd := string(data[:4])
 	if string(data[:4]) != "stat" {
 		log.Warnf("Unrecognized command %s, dropped", cmd)
 		return
 	}
 	body := bytes.TrimSpace(data[5:])
-	log.Debugln("Stat body is", string(body))
 	var stat map[string]int64
 	err := json.Unmarshal(body, &stat)
 	if err != nil {
@@ -261,8 +277,8 @@ func (mgr *manager) StatRecvHandler(data []byte) {
 		return
 	}
 	// Update statistic
-	mgr.serverLock.RLock()
-	defer mgr.serverLock.RUnlock()
+	mgr.serverMu.RLock()
+	defer mgr.serverMu.RUnlock()
 	s, ok := mgr.servers[int32(port)]
 	if !ok {
 		log.Warnf("Server on port %d not found!", port)
@@ -271,11 +287,16 @@ func (mgr *manager) StatRecvHandler(data []byte) {
 	s.stat.Store(Stat{Traffic: traffic})
 }
 
-func (mgr *manager) Listen() error {
+func (mgr *manager) Listen(ctx context.Context) error {
 	port := mgr.udpPort
 	addr, err := net.ResolveUDPAddr("udp", fmt.Sprintf("127.0.0.1:%d", port))
 	if err != nil {
 		return err
+	}
+	select {
+	case <-ctx.Done():
+		return errors.New("Canceled.")
+	default:
 	}
 	conn, err := net.ListenUDP("udp", addr)
 	if err != nil {
@@ -285,14 +306,19 @@ func (mgr *manager) Listen() error {
 		defer conn.Close()
 		buf := make([]byte, 1024)
 		for {
-			n, from, err := conn.ReadFromUDP(buf)
-			// the n-th is \x00 to indicate end
-			log.Debugf("Receving packet from %s: %s", from, buf[:n-1])
-			if err != nil {
-				log.Warnln(err)
-				continue
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				n, from, err := conn.ReadFromUDP(buf)
+				// the n-th is \x00 to indicate end
+				log.Debugf("Receving packet from %s: %s", from, buf[:n-1])
+				if err != nil {
+					log.Warnln(err)
+					continue
+				}
+				mgr.handleStat(buf[:n-1])
 			}
-			mgr.StatRecvHandler(buf[:n-1])
 		}
 	}()
 	log.Infof("Listening on 127.0.0.1:%d ...", port)
@@ -330,6 +356,8 @@ func (mgr *manager) deleteResidue(s *Server) error {
 }
 
 func (mgr *manager) exec(s *Server) error {
+	mgr.lockExec()
+	defer mgr.unlockExec()
 	err := mgr.prepareExec(s)
 	if err != nil {
 		return err
@@ -341,10 +369,10 @@ func (mgr *manager) exec(s *Server) error {
 	cmd := s.Command()
 	cmd.Stdout, cmd.Stderr = logw, logw
 	s.runtime.logw = logw
-	s.runtime.cmd = cmd
 	if err := cmd.Start(); err != nil {
 		return err
 	}
+	s.runtime.proc = cmd.Process
 	if err := s.SavePidFile(); err != nil {
 		log.Warnf("Can not save pid file, %s", err)
 	}
@@ -353,57 +381,58 @@ func (mgr *manager) exec(s *Server) error {
 }
 
 func (mgr *manager) kill(s *Server) {
+	mgr.lockExec()
+	defer mgr.unlockExec()
 	if err := s.Process().Kill(); err != nil {
 		log.Warnln(err)
 	}
 	// release process's resource
-	s.runtime.cmd.Wait()
+	s.runtime.proc.Wait()
 	s.runtime.logw.Close()
 	mgr.deleteResidue(s)
 }
 
 func (mgr *manager) Add(s *Server) error {
-	mgr.serverLock.Lock()
-	defer mgr.serverLock.Unlock()
-	mgr.execLock.Lock()
-	defer mgr.execLock.Unlock()
+	mgr.serverMu.Lock()
+	defer mgr.serverMu.Unlock()
 	if _, ok := mgr.servers[s.Port]; ok {
 		return ErrServerExists
 	}
 	if !s.Valid() {
 		return ErrInvalidServer
 	}
+	s = s.clone()
 	err := mgr.exec(s)
 	if err != nil {
 		return err
 	}
 	mgr.servers[s.Port] = s
+	log.Debugf("Adding server: %s", s)
 	return nil
 }
 
 func (mgr *manager) remove(port int32) {
-	mgr.serverLock.Lock()
-	defer mgr.serverLock.Unlock()
+	mgr.serverMu.Lock()
+	defer mgr.serverMu.Unlock()
 	delete(mgr.servers, port)
 }
 
 func (mgr *manager) Remove(port int32) error {
-	mgr.serverLock.Lock()
-	defer mgr.serverLock.Unlock()
-	mgr.execLock.Lock()
-	defer mgr.execLock.Unlock()
+	mgr.serverMu.Lock()
+	defer mgr.serverMu.Unlock()
 	s, ok := mgr.servers[port]
 	if !ok {
 		return ErrServerNotFound
 	}
 	delete(mgr.servers, port)
 	mgr.kill(s)
+	log.Debugf("Removing server: %s", s)
 	return nil
 }
 
 func (mgr *manager) ListServers() map[int32]*Server {
-	mgr.serverLock.RLock()
-	defer mgr.serverLock.RUnlock()
+	mgr.serverMu.RLock()
+	defer mgr.serverMu.RUnlock()
 	currentServers := make(map[int32]*Server)
 	for port, s := range mgr.servers {
 		currentServers[port] = s.clone()
@@ -412,8 +441,8 @@ func (mgr *manager) ListServers() map[int32]*Server {
 }
 
 func (mgr *manager) GetServer(port int32) (*Server, error) {
-	mgr.serverLock.RLock()
-	defer mgr.serverLock.RUnlock()
+	mgr.serverMu.RLock()
+	defer mgr.serverMu.RUnlock()
 	s, ok := mgr.servers[port]
 	if !ok {
 		return nil, ErrServerNotFound
@@ -421,21 +450,34 @@ func (mgr *manager) GetServer(port int32) (*Server, error) {
 	return s.clone(), nil
 }
 
-// ServerMonitor provide a way to monitor all server processes
-func (mgr *manager) ServerMonitor() {
-	for {
-		time.Sleep(5 * time.Second)
-		for _, s := range mgr.ListServers() {
-			if !s.Alive() {
-				mgr.execLock.Lock()
-				if err := mgr.exec(s); err != nil {
-					log.Warn("Can not restart server", s, ", error is", err)
-					log.Warn("Deleting server...")
-					mgr.deleteResidue(s)
-					mgr.remove(s.Port)
-				}
-				mgr.execLock.Unlock()
+func (mgr *manager) riseDead() {
+	for _, s := range mgr.ListServers() {
+		if !s.Alive() {
+			log.Warnf("Server on port %d should be alive, rising it", s.Port)
+			if err := mgr.exec(s); err != nil {
+				log.Warn("Can not restart server", s, ",", err)
+				log.Warn("Deleting server...")
+				mgr.deleteResidue(s)
+				mgr.remove(s.Port)
 			}
 		}
 	}
+}
+
+// WatchDaemon provides a way to monitor all server processes
+func (mgr *manager) WatchDaemon(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(5 * time.Second):
+			mgr.riseDead()
+		}
+	}
+}
+
+// Restore starts all ss-servers that leaves their dirs in manager.path
+func (mgr *manager) Restore() error {
+	// TODO(arkbriar@gmail.com) Complete it.
+	return nil
 }
