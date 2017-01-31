@@ -203,8 +203,13 @@ func (s *Server) Command() *exec.Cmd {
 	return exec.Command("ss-server", s.opts()...)
 }
 
-// String returns the command line string
 func (s *Server) String() string {
+	data, _ := json.Marshal(s)
+	return string(data)
+}
+
+// CommandString returns the command line string
+func (s *Server) CommandString() string {
 	return fmt.Sprintf("ss-server %s", strings.Join(s.opts(), " "))
 }
 
@@ -472,7 +477,7 @@ func (mgr *manager) Remove(port int32) error {
 	}
 	delete(mgr.servers, port)
 	mgr.kill(s)
-	log.Debugf("Removing server: %s", s)
+	log.Debugf("Removing server(%d)", s.Port)
 	return nil
 }
 

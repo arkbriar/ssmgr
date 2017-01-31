@@ -41,6 +41,7 @@ func contextMain(ctx context.Context) {
 	default:
 	}
 	mgr := ss.NewManager(6001)
+	defer mgr.CleanUp()
 	err := mgr.Restore()
 	if err != nil {
 		log.Warn(err)
@@ -64,7 +65,7 @@ func contextMain(ctx context.Context) {
 	select {
 	case <-ctx.Done():
 	case <-time.After(10 * time.Second):
-		log.Infoln("Removing ss server on port 8001")
+		log.Infoln("Removing ss server(8001)")
 		if err := mgr.Remove(8001); err != nil {
 			log.Panicln("Can not remove server, ", err)
 		}
@@ -72,6 +73,7 @@ func contextMain(ctx context.Context) {
 			log.Panicf("Server process %d is not supposed to be alive after remove action.", pid)
 		}
 	}
+	<-ctx.Done()
 }
 
 func main() {
