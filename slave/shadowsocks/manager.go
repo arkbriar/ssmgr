@@ -6,12 +6,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
 	"path"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -109,17 +109,20 @@ type Server struct {
 	Timeout  int    `json:"timeout"`
 	stat     atomic.Value
 	options  serverOptions
+	path     string
 	runtime  struct {
-		path   string
 		proc   *os.Process
-		logw   io.WriteCloser
 		config string
 	}
 }
 
+func validPort(p int32) bool {
+	return p > 0 && p < 65536
+}
+
 // Valid checks if it is a valid server configuration.
 func (s *Server) Valid() bool {
-	return len(s.Host) != 0 && s.Port > 0 && s.Port < 65536 && len(s.Password) >= 8 && ValidateEncryptMethod(s.Method) && s.Timeout > 0
+	return len(s.Host) != 0 && validPort(s.Port) && len(s.Password) >= 8 && ValidateEncryptMethod(s.Method) && s.Timeout > 0
 }
 
 // Save saves this server's configuration to file in JSON.
@@ -135,9 +138,42 @@ func (s *Server) Save(filename string) error {
 	return nil
 }
 
-// Restore restores the configuration to server fields.
-func (s *Server) Restore(filename string) error {
-	// TODO(arkbriar@gmail.com) Complete it.
+func (s *Server) restoreProc() error {
+	pidname, err := ioutil.ReadFile(path.Join(s.path, "ss_server.pid"))
+	if err != nil {
+		return err
+	}
+	pid, err := strconv.Atoi(string(pidname))
+	if err != nil {
+		log.Warnf("Invalid pid file, content: %s", pidname)
+		return err
+	}
+	proc, err := os.FindProcess(pid)
+	if err != nil {
+		log.Warnf("Can not find process(%d)", pid)
+		return err
+	}
+	s.runtime.proc = proc
+	return nil
+}
+
+// Restore restores the configuration and runtime infos.
+func (s *Server) Restore(serverPath string) error {
+	s.path = serverPath
+	s.runtime.config = path.Join(s.path, "ss_server.conf")
+
+	data, err := ioutil.ReadFile(s.runtime.config)
+	if err != nil {
+		return err
+	}
+	err = json.Unmarshal(data, s)
+	if err != nil {
+		return err
+	}
+	err = s.restoreProc()
+	if err != nil {
+		log.Warn(err)
+	}
 	return nil
 }
 
@@ -174,8 +210,6 @@ func (s *Server) String() string {
 
 func (s *Server) clone() *Server {
 	copy := *s
-	copy.stat.Store(s.GetStat())
-	copy.runtime.logw = nil
 	return &copy
 }
 
@@ -213,7 +247,7 @@ type Manager interface {
 	// sent from ss-server.
 	Listen(ctx context.Context) error
 	// WatchDaemon is a daemon that watches all server processes and rises dead servers.
-	WatchDaemon(ctx context.Context)
+	WatchDaemon(ctx context.Context, notifyFail func(*Server))
 	// Add adds a ss-server with given arguments.
 	Add(s *Server) error
 	// Remove kills the ss-server if found.
@@ -222,8 +256,10 @@ type Manager interface {
 	ListServers() map[int32]*Server
 	// GetServer gets a clone of `Server` struct of given port.
 	GetServer(port int32) (*Server, error)
-	// Restore all stopped servers.
+	// Restore all stopped servers, this must be called before any other actions.
 	Restore() error
+	// CleanUp removes all servers and files.
+	CleanUp()
 }
 
 // Implementation of `Manager` interface.
@@ -325,32 +361,34 @@ func (mgr *manager) Listen(ctx context.Context) error {
 	return nil
 }
 
-func (mgr *manager) prepareExec(s *Server) error {
-	pathPrefix := path.Join(mgr.path, fmt.Sprint(s.Port))
-
+func (mgr *manager) fillOptions(s *Server) {
 	s.options.UDPRelay = true
-	s.options.PidFile = path.Join(pathPrefix, "ss_server.pid")
+	s.options.PidFile = path.Join(s.path, "ss_server.pid")
 	s.options.ManagerAddress = fmt.Sprintf("127.0.0.1:%d", mgr.udpPort)
 	s.options.Verbose = true
+}
 
-	err := os.MkdirAll(pathPrefix, 0744)
+func (mgr *manager) prepareExec(s *Server) error {
+	s.path = path.Join(mgr.path, fmt.Sprint(s.Port))
+	mgr.fillOptions(s)
+
+	err := os.MkdirAll(s.path, 0744)
 	if err != nil {
 		return err
 	}
-	configFile := path.Join(pathPrefix, "ss_server.json")
-	err = s.Save(configFile)
+	config := path.Join(s.path, "ss_server.conf")
+	err = s.Save(config)
 	if err != nil {
 		return err
 	}
-	s.runtime.path = pathPrefix
-	s.runtime.config = configFile
+	s.runtime.config = config
 	return nil
 }
 
 func (mgr *manager) deleteResidue(s *Server) error {
-	err := os.RemoveAll(s.runtime.path)
+	err := os.RemoveAll(s.path)
 	if err != nil {
-		log.Warnf("Can not delete managed server path %s", s.runtime.path)
+		log.Warnf("Can not delete managed server path %s", s.path)
 	}
 	return err
 }
@@ -362,13 +400,12 @@ func (mgr *manager) exec(s *Server) error {
 	if err != nil {
 		return err
 	}
-	logw, err := os.Create(path.Join(s.runtime.path, "ss_server.log"))
+	logw, err := os.Create(path.Join(s.path, "ss_server.log"))
 	if err != nil {
 		return err
 	}
 	cmd := s.Command()
 	cmd.Stdout, cmd.Stderr = logw, logw
-	s.runtime.logw = logw
 	if err := cmd.Start(); err != nil {
 		return err
 	}
@@ -388,8 +425,17 @@ func (mgr *manager) kill(s *Server) {
 	}
 	// release process's resource
 	s.runtime.proc.Wait()
-	s.runtime.logw.Close()
 	mgr.deleteResidue(s)
+}
+
+func (mgr *manager) add(s *Server) error {
+	mgr.serverMu.Lock()
+	defer mgr.serverMu.Unlock()
+	if _, ok := mgr.servers[s.Port]; ok {
+		return ErrServerExists
+	}
+	mgr.servers[s.Port] = s
+	return nil
 }
 
 func (mgr *manager) Add(s *Server) error {
@@ -450,34 +496,148 @@ func (mgr *manager) GetServer(port int32) (*Server, error) {
 	return s.clone(), nil
 }
 
-func (mgr *manager) riseDead() {
-	for _, s := range mgr.ListServers() {
-		if !s.Alive() {
-			log.Warnf("Server on port %d should be alive, rising it", s.Port)
+func (mgr *manager) riseDaemon(ctx context.Context, s *Server, notifyFail func(*Server)) {
+	if s.Alive() {
+		return
+	}
+	// If the server failes to restart for 10 times, manager will give up.
+	const upperLimit = 10
+	count := 0
+	for count < upperLimit {
+		select {
+		case <-ctx.Done():
+			log.Warn("Cancel rise.")
+			return
+		case <-time.After(100 * time.Millisecond):
 			if err := mgr.exec(s); err != nil {
-				log.Warn("Can not restart server", s, ",", err)
-				log.Warn("Deleting server...")
-				mgr.deleteResidue(s)
-				mgr.remove(s.Port)
+				log.Warnf("Can not restart server(%d), %s", s.Port, err)
+				count++
+			} else {
+				log.Infof("Server(%d) back to work.", s.Port)
+				return
+			}
+		}
+	}
+	// Fail to start the server
+	log.Warnf("Deleting server(%d)", s.Port)
+	mgr.deleteResidue(s)
+	mgr.remove(s.Port)
+	if notifyFail != nil {
+		notifyFail(s.clone())
+	}
+}
+
+// WatchDaemon provides a way to monitor all server processes
+func (mgr *manager) WatchDaemon(ctx context.Context, notifyFail func(*Server)) {
+	rising := make(map[int32]context.CancelFunc)
+	for {
+		select {
+		case <-ctx.Done():
+			go func() {
+				for _, cancel := range rising {
+					cancel()
+				}
+			}()
+			return
+		case <-time.After(5 * time.Second):
+			for _, s := range mgr.ListServers() {
+				if !s.Alive() {
+					if _, ok := rising[s.Port]; ok {
+						continue
+					}
+					ctx, cancel := context.WithCancel(context.Background())
+					rising[s.Port] = cancel
+					log.Warnf("Server on port %d should be alive, rising it", s.Port)
+					go mgr.riseDaemon(ctx, s, notifyFail)
+				} else {
+					delete(rising, s.Port)
+				}
 			}
 		}
 	}
 }
 
-// WatchDaemon provides a way to monitor all server processes
-func (mgr *manager) WatchDaemon(ctx context.Context) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(5 * time.Second):
-			mgr.riseDead()
-		}
+func isDir(dirname string) bool {
+	fileInfo, err := os.Stat(dirname)
+	return err == nil && fileInfo.IsDir()
+}
+
+func getPort(portname string) (int32, bool) {
+	p, err := strconv.Atoi(portname)
+	return int32(p), err == nil && validPort(int32(p))
+}
+
+// readDirNames reads the directory named by dirname and returns
+// a sorted list of directory entries.
+func readDirNames(dirname string) ([]string, error) {
+	f, err := os.Open(dirname)
+	if err != nil {
+		return nil, err
 	}
+	names, err := f.Readdirnames(-1)
+	f.Close()
+	if err != nil {
+		return nil, err
+	}
+	sort.Strings(names)
+	return names, nil
+}
+
+func (mgr *manager) restore(s *Server, serverPath string) error {
+	if !validPort(s.Port) {
+		log.Warn("Invalid port.")
+	}
+	s.path = serverPath
+	err := s.Restore(serverPath)
+	if err != nil {
+		return err
+	}
+	if s.Alive() {
+		mgr.fillOptions(s)
+		if err := mgr.add(s); err != nil {
+			return err
+		}
+		return nil
+	}
+	err = mgr.Add(s)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // Restore starts all ss-servers that leaves their dirs in manager.path
 func (mgr *manager) Restore() error {
-	// TODO(arkbriar@gmail.com) Complete it.
+	if !isDir(mgr.path) {
+		return errors.New(mgr.path + " is not a directory.")
+	}
+	names, err := readDirNames(mgr.path)
+	if err != nil {
+		return err
+	}
+	for _, name := range names {
+		serverPath := path.Join(mgr.path, name)
+		if isDir(serverPath) {
+			if port, ok := getPort(name); ok {
+				log.Infof("Restoring server(%d) ...", port)
+				err := mgr.restore(&Server{Port: port}, serverPath)
+				if err != nil {
+					log.Warnf("Can not restore server(%d), remove it. %s", port, err)
+					os.RemoveAll(serverPath)
+				}
+			} else {
+				log.Warnf("Ignore unrecognized port %s.", name)
+			}
+		} else {
+			log.Warnf("Ignore normal file %s.", serverPath)
+		}
+	}
 	return nil
+}
+
+func (mgr *manager) CleanUp() {
+	os.RemoveAll(mgr.path)
+	for p := range mgr.ListServers() {
+		mgr.Remove(p)
+	}
 }
