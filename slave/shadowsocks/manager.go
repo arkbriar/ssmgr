@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -20,6 +21,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/arkbriar/ss-mgr/slave/shadowsocks/process"
+	"github.com/coreos/go-iptables/iptables"
 )
 
 type serverOptions struct {
@@ -114,6 +116,9 @@ type Server struct {
 		proc   *os.Process
 		config string
 	}
+	Extra struct {
+		StartTime time.Time `json:"start_time"`
+	} `json:"extra"`
 }
 
 func validPort(p int32) bool {
@@ -274,15 +279,46 @@ type manager struct {
 	path     string
 	udpPort  int
 	execLock sync.Mutex
+	// Never change options outside `NewManager`
+	opts *managerOptions
+}
+
+type managerOptions struct {
+	connLimit int
+}
+
+// ManagerOption configures how to start a ss-server.
+type ManagerOption func(*managerOptions)
+
+// WithConnLimit configures the connection limit for one ss-server(port).
+// This is only supported on linux using iptables.
+func WithConnLimit(limit int) ManagerOption {
+	if runtime.GOOS != "linux" {
+		log.Warn("Connection limit is not supported on non-linux system.")
+	}
+	return func(o *managerOptions) {
+		if limit > 0 {
+			o.connLimit = limit
+		}
+	}
 }
 
 // NewManager returns a new manager.
-func NewManager(udpPort int) Manager {
-	return &manager{
+func NewManager(udpPort int, opts ...ManagerOption) Manager {
+	mgr := &manager{
 		servers: make(map[int32]*Server),
 		path:    path.Join(os.Getenv("HOME"), ".shadowsocks_manager"),
 		udpPort: udpPort,
 	}
+	if len(opts) != 0 {
+		mgr.opts = &managerOptions{
+			connLimit: -1,
+		}
+	}
+	for _, opt := range opts {
+		opt(mgr.opts)
+	}
+	return mgr
 }
 
 // lockExec gets the command executing lock.
@@ -366,7 +402,7 @@ func (mgr *manager) Listen(ctx context.Context) error {
 	return nil
 }
 
-func (mgr *manager) fillOptions(s *Server) {
+func (mgr *manager) fillServerOptions(s *Server) {
 	s.options.UDPRelay = true
 	s.options.PidFile = path.Join(s.path, "ss_server.pid")
 	s.options.ManagerAddress = fmt.Sprintf("127.0.0.1:%d", mgr.udpPort)
@@ -375,7 +411,7 @@ func (mgr *manager) fillOptions(s *Server) {
 
 func (mgr *manager) prepareExec(s *Server) error {
 	s.path = path.Join(mgr.path, fmt.Sprint(s.Port))
-	mgr.fillOptions(s)
+	mgr.fillServerOptions(s)
 
 	err := os.MkdirAll(s.path, 0744)
 	if err != nil {
@@ -398,9 +434,57 @@ func (mgr *manager) deleteResidue(s *Server) error {
 	return err
 }
 
+var errUnsupportedPlatform = errors.New("Unsupported platform.")
+
+func (mgr *manager) setConnLimit(port int32, limit int) error {
+	if runtime.GOOS != "linux" {
+		return errUnsupportedPlatform
+	}
+	ipt, err := iptables.New()
+	if err != nil {
+		return err
+	}
+	return ipt.Append("filter", "INPUT", "-p", "tcp", "--syn", "--dport", fmt.Sprint(port), "-m", "connlimit", "--connlimit-above", fmt.Sprint(limit), "-j", "REJECT", "--reject-with", "tcp-reset")
+}
+
+func (mgr *manager) removeConnLimit(port int32, limit int) error {
+	if runtime.GOOS != "linux" {
+		return errUnsupportedPlatform
+		return nil
+	}
+	ipt, err := iptables.New()
+	if err != nil {
+		return err
+	}
+	return ipt.Delete("filter", "INPUT", "-p", "tcp", "--syn", "--dport", fmt.Sprint(port), "-m", "connlimit", "--connlimit-above", fmt.Sprint(limit), "-j", "REJECT", "--reject-with", "tcp-reset")
+}
+
+func (mgr *manager) applyOptionsOnExec(s *Server, o *managerOptions) {
+	if o == nil {
+		return
+	}
+	if err := mgr.setConnLimit(s.Port, o.connLimit); err != nil {
+		if err != errUnsupportedPlatform {
+			log.Warn(err)
+		}
+	}
+}
+
+func (mgr *manager) clearOptionsOnKill(s *Server, o *managerOptions) {
+	if o == nil {
+		return
+	}
+	if err := mgr.removeConnLimit(s.Port, o.connLimit); err != nil {
+		if err != errUnsupportedPlatform {
+			log.Warn(err)
+		}
+	}
+}
+
 func (mgr *manager) exec(s *Server) error {
 	mgr.lockExec()
 	defer mgr.unlockExec()
+	s.Extra.StartTime = time.Now()
 	err := mgr.prepareExec(s)
 	if err != nil {
 		return err
@@ -419,18 +503,22 @@ func (mgr *manager) exec(s *Server) error {
 		log.Warnf("Can not save pid file, %s", err)
 	}
 	log.Infof("ss-server running at process %d", cmd.Process.Pid)
+	mgr.applyOptionsOnExec(s, mgr.opts)
 	return nil
 }
 
 func (mgr *manager) kill(s *Server) {
 	mgr.lockExec()
 	defer mgr.unlockExec()
-	if err := s.Process().Kill(); err != nil {
-		log.Warnln(err)
+	if s.Alive() {
+		if err := s.Process().Kill(); err != nil {
+			log.Warnln(err)
+		}
+		// release process's resource
+		s.runtime.proc.Wait()
 	}
-	// release process's resource
-	s.runtime.proc.Wait()
 	mgr.deleteResidue(s)
+	mgr.clearOptionsOnKill(s, mgr.opts)
 }
 
 func (mgr *manager) add(s *Server) error {
@@ -525,7 +613,7 @@ func (mgr *manager) riseDaemon(ctx context.Context, s *Server, notifyFail func(*
 	}
 	// Fail to start the server
 	log.Warnf("Deleting server(%d)", s.Port)
-	mgr.deleteResidue(s)
+	mgr.kill(s)
 	mgr.remove(s.Port)
 	if notifyFail != nil {
 		notifyFail(s.clone())
@@ -598,7 +686,7 @@ func (mgr *manager) restore(s *Server, serverPath string) error {
 		return err
 	}
 	if s.Alive() {
-		mgr.fillOptions(s)
+		mgr.fillServerOptions(s)
 		if err := mgr.add(s); err != nil {
 			return err
 		}
@@ -613,6 +701,9 @@ func (mgr *manager) restore(s *Server, serverPath string) error {
 
 // Restore starts all ss-servers that leaves their dirs in manager.path
 func (mgr *manager) Restore() error {
+	if _, err := os.Stat(mgr.path); err != nil {
+		return err
+	}
 	if !isDir(mgr.path) {
 		return errors.New(mgr.path + " is not a directory.")
 	}

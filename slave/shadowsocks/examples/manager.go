@@ -40,7 +40,7 @@ func contextMain(ctx context.Context) {
 		return
 	default:
 	}
-	mgr := ss.NewManager(6001)
+	mgr := ss.NewManager(6001, ss.WithConnLimit(32))
 	defer mgr.CleanUp()
 	err := mgr.Restore()
 	if err != nil {
