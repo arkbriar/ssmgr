@@ -18,12 +18,12 @@ type slaveServer struct {
 	mgr   ss.Manager
 }
 
-// NewSSMgrSlaveServer creates a SSMgrSlaveServer along with two auth interceptors.
-func NewSSMgrSlaveServer(token string, mgr ss.Manager) (proto.SSMgrSlaveServer, grpc.StreamServerInterceptor, grpc.UnaryServerInterceptor) {
+// NewSSMgrSlaveServer creates a SSMgrSlaveServer.
+func NewSSMgrSlaveServer(token string, mgr ss.Manager) proto.SSMgrSlaveServer {
 	return &slaveServer{
 		token: token,
 		mgr:   mgr,
-	}, streamAuthInterceptor(token), unaryAuthInterceptor(token)
+	}
 }
 
 func authorize(ctx context.Context, token string) error {
@@ -36,7 +36,7 @@ func authorize(ctx context.Context, token string) error {
 	return errors.New("Empty metadata.")
 }
 
-func streamAuthInterceptor(token string) grpc.StreamServerInterceptor {
+func StreamAuthInterceptor(token string) grpc.StreamServerInterceptor {
 	return func(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		if err := authorize(stream.Context(), token); err != nil {
 			return err
@@ -45,7 +45,7 @@ func streamAuthInterceptor(token string) grpc.StreamServerInterceptor {
 	}
 }
 
-func unaryAuthInterceptor(token string) grpc.UnaryServerInterceptor {
+func UnaryAuthInterceptor(token string) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		if err := authorize(ctx, token); err != nil {
 			return nil, err
@@ -55,13 +55,29 @@ func unaryAuthInterceptor(token string) grpc.UnaryServerInterceptor {
 }
 
 func (s *slaveServer) Allocate(ctx context.Context, r *proto.AllocateRequest) (*google_protobuf.Empty, error) {
-	return nil, nil
+	ss := &ss.Server{
+		Host: "0.0.0.0",
+		Port: r.GetPort(),
+		Password: r.GetPassword(),
+		Method: r.GetMethod(),
+		Timeout: 60,
+	}
+	return nil, s.mgr.Add(ss)
 }
 
 func (s *slaveServer) Free(ctx context.Context, r *proto.FreeRequest) (*google_protobuf.Empty, error) {
-	return nil, nil
+	return nil, s.mgr.Remove(r.GetPort())
 }
 
 func (s *slaveServer) GetStats(ctx context.Context, _ *google_protobuf.Empty) (*proto.Statistics, error) {
-	return nil, nil
+	flow := make(map[int32]*proto.FlowUnit)
+	for port, ss := range s.mgr.ListServers() {
+		flow[port] = &proto.FlowUnit{
+			Traffic: ss.GetStat().Traffic,
+			StartTime: ss.Extra.StartTime.UnixNano(),
+		}
+	}
+	return &proto.Statistics{
+		Flow: flow,
+	}, nil
 }
