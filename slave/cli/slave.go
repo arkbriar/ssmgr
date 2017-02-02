@@ -30,15 +30,15 @@ func init() {
 	flag.Parse()
 	if *token == "" {
 		log.Error("Token must not be empty.")
-		os.Exit(1)
+		os.Exit(-1)
 	}
 	if !validPort(*port) {
 		log.Error("Invalid port.")
-		os.Exit(1)
+		os.Exit(-1)
 	}
 	if !validPort(*managerPort) {
 		log.Error("Invalid manager port.")
-		os.Exit(1)
+		os.Exit(-1)
 	}
 }
 
