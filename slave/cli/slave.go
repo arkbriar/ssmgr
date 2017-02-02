@@ -17,9 +17,9 @@ import (
 )
 
 var (
-	port        = flag.Int("-port", 6001, "Port of slave service.")
-	managerPort = flag.Int("-manager-port", 6001, "UDP port (of origin shadowsocks manager) to listen.")
-	token       = flag.String("-token", "", "Token shared between master and slave.")
+	port        = flag.Int("port", 6001, "Port of slave service.")
+	managerPort = flag.Int("manager-port", 6001, "UDP port (of origin shadowsocks manager) to listen.")
+	token       = flag.String("token", "", "Token shared between master and slave.")
 )
 
 func validPort(p int) bool {
