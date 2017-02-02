@@ -6,242 +6,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
-	"os/exec"
 	"path"
-	"runtime"
 	"sort"
 	"strconv"
-	"strings"
 	"sync"
-	"sync/atomic"
-	"time"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/arkbriar/ss-mgr/slave/shadowsocks/process"
-	"github.com/coreos/go-iptables/iptables"
 )
-
-type serverOptions struct {
-	UDPRelay       bool
-	IPv6First      bool
-	MPTCP          bool
-	TCPFastOpen    bool
-	Auth           bool
-	NameServer     string
-	PidFile        string
-	ManagerAddress string
-	Interface      string
-	FireWall       bool
-	Verbose        bool
-}
-
-func (o *serverOptions) BuildArgs() []string {
-	opts := make([]string, 0)
-	if o.UDPRelay {
-		opts = append(opts, "-u")
-	}
-	if o.IPv6First {
-		opts = append(opts, "-6")
-	}
-	if o.MPTCP {
-		opts = append(opts, "--mptcp")
-	}
-	if o.TCPFastOpen {
-		opts = append(opts, "--fast-open")
-	}
-	if o.Auth {
-		opts = append(opts, "-A")
-	}
-	if len(o.NameServer) != 0 {
-		opts = append(opts, "-d", o.NameServer)
-	}
-	// DO NOT USE THIS OPTION
-	// When use pid file, ss-server will create a child process and we can
-	// not operate on it directly.
-	/* if len(o.PidFile) != 0 {
-	 *     opts = append(opts, "-f", o.PidFile)
-	 * } */
-	if len(o.ManagerAddress) != 0 {
-		opts = append(opts, "--manager-address", o.ManagerAddress)
-	}
-	if o.FireWall {
-		opts = append(opts, "--firewall")
-	}
-	if o.Verbose {
-		opts = append(opts, "-v")
-	}
-	return opts
-}
-
-var (
-	methods = []string{
-		"table", "rc4", "rc4-md5", "aes-128-cfb", "aes-192-cfb", "aes-256-cfb",
-		"aes-128-ctr", "aes-192-ctr", "aes-256-ctr", "bf-cfb", "camellia-128-cfb",
-		"camellia-192-cfb", "camellia-256-cfb", "cast5-cfb", "des-cfb", "idea-cfb",
-		"rc2-cfb", "seed-cfb", "salsa20", "chacha20", "chacha20-ietf",
-	}
-)
-
-// ValidateEncryptMethod validates if the encrypt method is supported.
-func ValidateEncryptMethod(m string) bool {
-	for _, method := range methods {
-		if m == method {
-			return true
-		}
-	}
-	return false
-}
-
-// Errors of `Manager`
-var (
-	ErrServerNotFound = errors.New("Server not found.")
-	ErrInvalidServer  = errors.New("Invalid server.")
-	ErrServerExists   = errors.New("Server already exists.")
-)
-
-// Server is a struct describes a shadowsocks server.
-type Server struct {
-	Host     string `json:"server"`
-	Port     int32  `json:"server_port"`
-	Password string `json:"password"`
-	Method   string `json:"method"`
-	Timeout  int    `json:"timeout"`
-	stat     atomic.Value
-	options  serverOptions
-	path     string
-	runtime  struct {
-		proc   *os.Process
-		config string
-	}
-	Extra struct {
-		StartTime time.Time `json:"start_time"`
-	} `json:"extra"`
-}
-
-func validPort(p int32) bool {
-	return p > 0 && p < 65536
-}
-
-// Valid checks if it is a valid server configuration.
-func (s *Server) Valid() bool {
-	return len(s.Host) != 0 && validPort(s.Port) && len(s.Password) >= 8 && ValidateEncryptMethod(s.Method) && s.Timeout > 0
-}
-
-// Save saves this server's configuration to file in JSON.
-func (s *Server) Save(filename string) error {
-	data, err := json.MarshalIndent(s, "", "  ")
-	if err != nil {
-		return err
-	}
-	err = ioutil.WriteFile(filename, data, 0644)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (s *Server) restoreProc() error {
-	pidname, err := ioutil.ReadFile(path.Join(s.path, "ss_server.pid"))
-	if err != nil {
-		return err
-	}
-	pid, err := strconv.Atoi(string(pidname))
-	if err != nil {
-		log.Warnf("Invalid pid file, content: %s", pidname)
-		return err
-	}
-	proc, err := os.FindProcess(pid)
-	if err != nil {
-		log.Warnf("Can not find process(%d)", pid)
-		return err
-	}
-	s.runtime.proc = proc
-	return nil
-}
-
-// Restore restores the configuration and runtime infos.
-func (s *Server) Restore(serverPath string) error {
-	s.path = serverPath
-	s.runtime.config = path.Join(s.path, "ss_server.conf")
-
-	data, err := ioutil.ReadFile(s.runtime.config)
-	if err != nil {
-		return err
-	}
-	err = json.Unmarshal(data, s)
-	if err != nil {
-		return err
-	}
-	err = s.restoreProc()
-	if err != nil {
-		log.Warn(err)
-	}
-	return nil
-}
-
-// SavePidFile saves current pid to a file (s.options.PidFile). This method
-// is to replace ss-server's '-f' option.
-func (s *Server) SavePidFile() error {
-	proc := s.Process()
-	if len(s.options.PidFile) != 0 && proc != nil {
-		return ioutil.WriteFile(s.options.PidFile, []byte(fmt.Sprint(proc.Pid)), 0644)
-	}
-	return nil
-}
-
-func (s *Server) opts() []string {
-	var opts []string
-	if len(s.runtime.config) != 0 {
-		opts = []string{"-c", s.runtime.config}
-	} else {
-		opts = []string{"-s", s.Host, "-p", fmt.Sprint(s.Port), "-m", s.Method, "-k", s.Password, "-d", fmt.Sprint(s.Timeout)}
-	}
-	opts = append(opts, s.options.BuildArgs()...)
-	return opts
-}
-
-// Command constructs a new shadowsock server command
-func (s *Server) Command() *exec.Cmd {
-	return exec.Command("ss-server", s.opts()...)
-}
-
-func (s *Server) String() string {
-	data, _ := json.Marshal(s)
-	return string(data)
-}
-
-// CommandString returns the command line string
-func (s *Server) CommandString() string {
-	return fmt.Sprintf("ss-server %s", strings.Join(s.opts(), " "))
-}
-
-func (s *Server) clone() *Server {
-	copy := *s
-	return &copy
-}
-
-// GetStat returns the statistics of this server
-func (s *Server) GetStat() Stat {
-	stat := s.stat.Load()
-	if stat == nil {
-		return Stat{}
-	}
-	return stat.(Stat)
-}
-
-// Process returns the running process / nil of server
-func (s *Server) Process() *os.Process {
-	return s.runtime.proc
-}
-
-// Alive returns if the server is alive
-func (s *Server) Alive() bool {
-	proc := s.Process()
-	return proc != nil && process.Alive(proc.Pid)
-}
 
 // Stat represents the statistics collected from a shadowsocks server
 type Stat struct {
@@ -256,8 +29,6 @@ type Manager interface {
 	// Listen listens udp connection on 127.0.0.1:{udpPort} and handles the stats update
 	// sent from ss-server.
 	Listen(ctx context.Context) error
-	// WatchDaemon is a daemon that watches all server processes and rises dead servers.
-	WatchDaemon(ctx context.Context, notifyFail func(*Server))
 	// Add adds a ss-server with given arguments.
 	Add(s *Server) error
 	// Remove kills the ss-server if found.
@@ -279,44 +50,14 @@ type manager struct {
 	path     string
 	udpPort  int
 	execLock sync.Mutex
-	// Never change options outside `NewManager`
-	opts *managerOptions
-}
-
-type managerOptions struct {
-	connLimit int
-}
-
-// ManagerOption configures how to start a ss-server.
-type ManagerOption func(*managerOptions)
-
-// WithConnLimit configures the connection limit for one ss-server(port).
-// This is only supported on linux using iptables.
-func WithConnLimit(limit int) ManagerOption {
-	if runtime.GOOS != "linux" {
-		log.Warn("Connection limit is not supported on non-linux system.")
-	}
-	return func(o *managerOptions) {
-		if limit > 0 {
-			o.connLimit = limit
-		}
-	}
 }
 
 // NewManager returns a new manager.
-func NewManager(udpPort int, opts ...ManagerOption) Manager {
+func NewManager(udpPort int) Manager {
 	mgr := &manager{
 		servers: make(map[int32]*Server),
 		path:    path.Join(os.Getenv("HOME"), ".shadowsocks_manager"),
 		udpPort: udpPort,
-	}
-	if len(opts) != 0 {
-		mgr.opts = &managerOptions{
-			connLimit: -1,
-		}
-	}
-	for _, opt := range opts {
-		opt(mgr.opts)
 	}
 	return mgr
 }
@@ -356,12 +97,12 @@ func (mgr *manager) handleStat(data []byte) {
 	// Update statistic
 	mgr.serverMu.RLock()
 	defer mgr.serverMu.RUnlock()
-	s, ok := mgr.servers[int32(port)]
+	_, ok := mgr.servers[int32(port)]
 	if !ok {
 		log.Warnf("Server on port %d not found!", port)
 		return
 	}
-	s.stat.Store(Stat{Traffic: traffic})
+	/* s.stat.Store(Stat{Traffic: traffic}) */
 }
 
 func (mgr *manager) Listen(ctx context.Context) error {
@@ -402,170 +143,100 @@ func (mgr *manager) Listen(ctx context.Context) error {
 	return nil
 }
 
-func (mgr *manager) fillServerOptions(s *Server) {
-	s.options.UDPRelay = true
-	s.options.PidFile = path.Join(s.path, "ss_server.pid")
-	s.options.ManagerAddress = fmt.Sprintf("127.0.0.1:%d", mgr.udpPort)
-	s.options.Verbose = true
-}
+/* func (mgr *manager) deleteResidue(s *Server) error {
+ *     err := os.RemoveAll(s.path)
+ *     if err != nil {
+ *         log.Warnf("Can not delete managed server path %s", s.path)
+ *     }
+ *     return err
+ * } */
 
-func (mgr *manager) prepareExec(s *Server) error {
-	s.path = path.Join(mgr.path, fmt.Sprint(s.Port))
-	mgr.fillServerOptions(s)
+/* func (mgr *manager) exec(s *Server) error {
+ *     mgr.lockExec()
+ *     defer mgr.unlockExec()
+ *     s.Extra.StartTime = time.Now()
+ *     err := mgr.prepareExec(s)
+ *     if err != nil {
+ *         return err
+ *     }
+ *     logw, err := os.Create(path.Join(s.path, "ss_server.log"))
+ *     if err != nil {
+ *         return err
+ *     }
+ *     cmd := s.Command()
+ *     cmd.Stdout, cmd.Stderr = logw, logw
+ *     if err := cmd.Start(); err != nil {
+ *         return err
+ *     }
+ *     s.runtime.proc = cmd.Process
+ *     if err := s.SavePidFile(); err != nil {
+ *         log.Warnf("Can not save pid file, %s", err)
+ *     }
+ *     log.Infof("ss-server running at process %d", cmd.Process.Pid)
+ *     mgr.applyOptionsOnExec(s, mgr.opts)
+ *     return nil
+ * }
+ *
+ * func (mgr *manager) kill(s *Server) {
+ *     mgr.lockExec()
+ *     defer mgr.unlockExec()
+ *     if s.Alive() {
+ *         if err := s.Process().Kill(); err != nil {
+ *             log.Warnln(err)
+ *         }
+ *         // release process's resource
+ *         s.runtime.proc.Wait()
+ *     }
+ *     mgr.deleteResidue(s)
+ *     mgr.clearOptionsOnKill(s, mgr.opts)
+ * } */
 
-	err := os.MkdirAll(s.path, 0744)
-	if err != nil {
-		return err
-	}
-	config := path.Join(s.path, "ss_server.conf")
-	err = s.Save(config)
-	if err != nil {
-		return err
-	}
-	s.runtime.config = config
-	return nil
-}
-
-func (mgr *manager) deleteResidue(s *Server) error {
-	err := os.RemoveAll(s.path)
-	if err != nil {
-		log.Warnf("Can not delete managed server path %s", s.path)
-	}
-	return err
-}
-
-var errUnsupportedPlatform = errors.New("Unsupported platform.")
-
-func (mgr *manager) setConnLimit(port int32, limit int) error {
-	if runtime.GOOS != "linux" {
-		return errUnsupportedPlatform
-	}
-	ipt, err := iptables.New()
-	if err != nil {
-		return err
-	}
-	return ipt.Append("filter", "INPUT", "-p", "tcp", "--syn", "--dport", fmt.Sprint(port), "-m", "connlimit", "--connlimit-above", fmt.Sprint(limit), "-j", "REJECT", "--reject-with", "tcp-reset")
-}
-
-func (mgr *manager) removeConnLimit(port int32, limit int) error {
-	if runtime.GOOS != "linux" {
-		return errUnsupportedPlatform
-		return nil
-	}
-	ipt, err := iptables.New()
-	if err != nil {
-		return err
-	}
-	return ipt.Delete("filter", "INPUT", "-p", "tcp", "--syn", "--dport", fmt.Sprint(port), "-m", "connlimit", "--connlimit-above", fmt.Sprint(limit), "-j", "REJECT", "--reject-with", "tcp-reset")
-}
-
-func (mgr *manager) applyOptionsOnExec(s *Server, o *managerOptions) {
-	if o == nil {
-		return
-	}
-	if err := mgr.setConnLimit(s.Port, o.connLimit); err != nil {
-		if err != errUnsupportedPlatform {
-			log.Warn(err)
-		}
-	}
-}
-
-func (mgr *manager) clearOptionsOnKill(s *Server, o *managerOptions) {
-	if o == nil {
-		return
-	}
-	if err := mgr.removeConnLimit(s.Port, o.connLimit); err != nil {
-		if err != errUnsupportedPlatform {
-			log.Warn(err)
-		}
-	}
-}
-
-func (mgr *manager) exec(s *Server) error {
-	mgr.lockExec()
-	defer mgr.unlockExec()
-	s.Extra.StartTime = time.Now()
-	err := mgr.prepareExec(s)
-	if err != nil {
-		return err
-	}
-	logw, err := os.Create(path.Join(s.path, "ss_server.log"))
-	if err != nil {
-		return err
-	}
-	cmd := s.Command()
-	cmd.Stdout, cmd.Stderr = logw, logw
-	if err := cmd.Start(); err != nil {
-		return err
-	}
-	s.runtime.proc = cmd.Process
-	if err := s.SavePidFile(); err != nil {
-		log.Warnf("Can not save pid file, %s", err)
-	}
-	log.Infof("ss-server running at process %d", cmd.Process.Pid)
-	mgr.applyOptionsOnExec(s, mgr.opts)
-	return nil
-}
-
-func (mgr *manager) kill(s *Server) {
-	mgr.lockExec()
-	defer mgr.unlockExec()
-	if s.Alive() {
-		if err := s.Process().Kill(); err != nil {
-			log.Warnln(err)
-		}
-		// release process's resource
-		s.runtime.proc.Wait()
-	}
-	mgr.deleteResidue(s)
-	mgr.clearOptionsOnKill(s, mgr.opts)
-}
-
-func (mgr *manager) add(s *Server) error {
-	mgr.serverMu.Lock()
-	defer mgr.serverMu.Unlock()
-	if _, ok := mgr.servers[s.Port]; ok {
-		return ErrServerExists
-	}
-	mgr.servers[s.Port] = s
-	return nil
-}
+/* func (mgr *manager) add(s *Server) error {
+ *     mgr.serverMu.Lock()
+ *     defer mgr.serverMu.Unlock()
+ *     if _, ok := mgr.servers[s.Port]; ok {
+ *         return ErrServerExists
+ *     }
+ *     mgr.servers[s.Port] = s
+ *     return nil
+ * } */
 
 func (mgr *manager) Add(s *Server) error {
-	mgr.serverMu.Lock()
-	defer mgr.serverMu.Unlock()
-	if _, ok := mgr.servers[s.Port]; ok {
-		return ErrServerExists
-	}
-	if !s.Valid() {
-		return ErrInvalidServer
-	}
-	s = s.clone()
-	err := mgr.exec(s)
-	if err != nil {
-		return err
-	}
-	mgr.servers[s.Port] = s
-	log.Debugf("Adding server: %s", s)
 	return nil
+	/* mgr.serverMu.Lock()
+	 * defer mgr.serverMu.Unlock()
+	 * if _, ok := mgr.servers[s.Port]; ok {
+	 *     return ErrServerExists
+	 * }
+	 * if !s.Valid() {
+	 *     return ErrInvalidServer
+	 * }
+	 * s = s.clone()
+	 * err := mgr.exec(s)
+	 * if err != nil {
+	 *     return err
+	 * }
+	 * mgr.servers[s.Port] = s
+	 * log.Debugf("Adding server: %s", s)
+	 * return nil */
 }
 
-func (mgr *manager) remove(port int32) {
-	mgr.serverMu.Lock()
-	defer mgr.serverMu.Unlock()
-	delete(mgr.servers, port)
-}
+/* func (mgr *manager) remove(port int32) {
+ *     mgr.serverMu.Lock()
+ *     defer mgr.serverMu.Unlock()
+ *     delete(mgr.servers, port)
+ * } */
 
 func (mgr *manager) Remove(port int32) error {
-	mgr.serverMu.Lock()
-	defer mgr.serverMu.Unlock()
-	s, ok := mgr.servers[port]
-	if !ok {
-		return ErrServerNotFound
-	}
-	delete(mgr.servers, port)
-	mgr.kill(s)
-	log.Debugf("Removing server(%d)", s.Port)
+	/* mgr.serverMu.Lock()
+	 * defer mgr.serverMu.Unlock()
+	 * s, ok := mgr.servers[port]
+	 * if !ok {
+	 *     return ErrServerNotFound
+	 * }
+	 * delete(mgr.servers, port)
+	 * mgr.kill(s)
+	 * log.Debugf("Removing server(%d)", s.Port) */
 	return nil
 }
 
@@ -573,81 +244,20 @@ func (mgr *manager) ListServers() map[int32]*Server {
 	mgr.serverMu.RLock()
 	defer mgr.serverMu.RUnlock()
 	currentServers := make(map[int32]*Server)
-	for port, s := range mgr.servers {
-		currentServers[port] = s.clone()
-	}
+	/* for port, s := range mgr.servers {
+	 *     currentServers[port] = s.clone()
+	 * } */
 	return currentServers
 }
 
 func (mgr *manager) GetServer(port int32) (*Server, error) {
 	mgr.serverMu.RLock()
 	defer mgr.serverMu.RUnlock()
-	s, ok := mgr.servers[port]
-	if !ok {
-		return nil, ErrServerNotFound
-	}
+	s, _ := mgr.servers[port]
+	/* if !ok {
+	 *     return nil, ErrServerNotFound
+	 * } */
 	return s.clone(), nil
-}
-
-func (mgr *manager) riseDaemon(ctx context.Context, s *Server, notifyFail func(*Server)) {
-	if s.Alive() {
-		return
-	}
-	// If the server failes to restart for 10 times, manager will give up.
-	const upperLimit = 10
-	count := 0
-	for count < upperLimit {
-		select {
-		case <-ctx.Done():
-			log.Warn("Cancel rise.")
-			return
-		case <-time.After(100 * time.Millisecond):
-			if err := mgr.exec(s); err != nil {
-				log.Warnf("Can not restart server(%d), %s", s.Port, err)
-				count++
-			} else {
-				log.Infof("Server(%d) back to work.", s.Port)
-				return
-			}
-		}
-	}
-	// Fail to start the server
-	log.Warnf("Deleting server(%d)", s.Port)
-	mgr.kill(s)
-	mgr.remove(s.Port)
-	if notifyFail != nil {
-		notifyFail(s.clone())
-	}
-}
-
-// WatchDaemon provides a way to monitor all server processes
-func (mgr *manager) WatchDaemon(ctx context.Context, notifyFail func(*Server)) {
-	rising := make(map[int32]context.CancelFunc)
-	for {
-		select {
-		case <-ctx.Done():
-			go func() {
-				for _, cancel := range rising {
-					cancel()
-				}
-			}()
-			return
-		case <-time.After(5 * time.Second):
-			for _, s := range mgr.ListServers() {
-				if !s.Alive() {
-					if _, ok := rising[s.Port]; ok {
-						continue
-					}
-					ctx, cancel := context.WithCancel(context.Background())
-					rising[s.Port] = cancel
-					log.Warnf("Server on port %d should be alive, rising it", s.Port)
-					go mgr.riseDaemon(ctx, s, notifyFail)
-				} else {
-					delete(rising, s.Port)
-				}
-			}
-		}
-	}
 }
 
 func isDir(dirname string) bool {
@@ -677,57 +287,57 @@ func readDirNames(dirname string) ([]string, error) {
 }
 
 func (mgr *manager) restore(s *Server, serverPath string) error {
-	if !validPort(s.Port) {
-		log.Warn("Invalid port.")
-	}
-	s.path = serverPath
-	err := s.Restore(serverPath)
-	if err != nil {
-		return err
-	}
-	if s.Alive() {
-		mgr.fillServerOptions(s)
-		if err := mgr.add(s); err != nil {
-			return err
-		}
-		return nil
-	}
-	err = mgr.Add(s)
-	if err != nil {
-		return err
-	}
+	/* if !validPort(s.Port) {
+	 *     log.Warn("Invalid port.")
+	 * }
+	 * s.path = serverPath
+	 * err := s.Restore(serverPath)
+	 * if err != nil {
+	 *     return err
+	 * }
+	 * if s.Alive() {
+	 *     mgr.fillServerOptions(s)
+	 *     if err := mgr.add(s); err != nil {
+	 *         return err
+	 *     }
+	 *     return nil
+	 * }
+	 * err = mgr.Add(s)
+	 * if err != nil {
+	 *     return err
+	 * } */
 	return nil
 }
 
 // Restore starts all ss-servers that leaves their dirs in manager.path
 func (mgr *manager) Restore() error {
-	if _, err := os.Stat(mgr.path); err != nil {
-		return err
-	}
-	if !isDir(mgr.path) {
-		return errors.New(mgr.path + " is not a directory.")
-	}
-	names, err := readDirNames(mgr.path)
-	if err != nil {
-		return err
-	}
-	for _, name := range names {
-		serverPath := path.Join(mgr.path, name)
-		if isDir(serverPath) {
-			if port, ok := getPort(name); ok {
-				log.Infof("Restoring server(%d) ...", port)
-				err := mgr.restore(&Server{Port: port}, serverPath)
-				if err != nil {
-					log.Warnf("Can not restore server(%d), remove it. %s", port, err)
-					os.RemoveAll(serverPath)
-				}
-			} else {
-				log.Warnf("Ignore unrecognized port %s.", name)
-			}
-		} else {
-			log.Warnf("Ignore normal file %s.", serverPath)
-		}
-	}
+	/* if _, err := os.Stat(mgr.path); err != nil {
+	 *     return err
+	 * }
+	 * if !isDir(mgr.path) {
+	 *     return errors.New(mgr.path + " is not a directory.")
+	 * }
+	 * names, err := readDirNames(mgr.path)
+	 * if err != nil {
+	 *     return err
+	 * }
+	 * for _, name := range names {
+	 *     serverPath := path.Join(mgr.path, name)
+	 *     if isDir(serverPath) {
+	 *         if port, ok := getPort(name); ok {
+	 *             log.Infof("Restoring server(%d) ...", port)
+	 *             err := mgr.restore(&Server{Port: port}, serverPath)
+	 *             if err != nil {
+	 *                 log.Warnf("Can not restore server(%d), remove it. %s", port, err)
+	 *                 os.RemoveAll(serverPath)
+	 *             }
+	 *         } else {
+	 *             log.Warnf("Ignore unrecognized port %s.", name)
+	 *         }
+	 *     } else {
+	 *         log.Warnf("Ignore normal file %s.", serverPath)
+	 *     }
+	 * } */
 	return nil
 }
 
