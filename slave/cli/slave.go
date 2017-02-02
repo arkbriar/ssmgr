@@ -66,6 +66,7 @@ func run(ctx context.Context) error {
 	proto.RegisterSSMgrSlaveServer(s, slave.NewSSMgrSlaveServer(token, mgr))
 	errc := make(chan error, 1)
 	go func() {
+		log.Infof("Starting server on 0.0.0.0:%d", *port)
 		errc <- s.Serve(conn)
 	}()
 	select {
