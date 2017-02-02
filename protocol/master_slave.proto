@@ -4,57 +4,27 @@ package protocol;
 
 import "google/protobuf/empty.proto";
 
-message ShadowsocksService {
-  int32 port = 1;
-  string password = 2;
-}
-
-message ServiceList {
-  repeated ShadowsocksService services = 1;
-}
-
-message Statistics {
-  map<int32, int64> traffics = 1;
+service SSMgrSlave {
+    rpc Allocate(AllocateRequest) returns (google.protobuf.Empty) {}
+    rpc Free(FreeRequest) returns (google.protobuf.Empty) {}
+    rpc GetStats(google.protobuf.Empty) returns (Statistics) {}
 }
 
 message AllocateRequest {
-  ServiceList service_list = 1;
-}
-
-message AllocateResponse {
-  ServiceList service_list = 1;
+    int32 port = 1;
+    string password = 2;
+    string method = 3;
 }
 
 message FreeRequest {
-  ServiceList service_list = 1;
+    int32 port = 1;
 }
 
-message FreeResponse {
-  ServiceList service_list = 1;
+message FlowUnit {
+  int64 traffic = 1;
+  int64 start_time = 2;
 }
 
-// ShadowsocksManagerSlave rpc service provides an interface to communicate with 
-// remote slave node.
-service ShadowsocksManagerSlave {
-  rpc Allocate(AllocateRequest) returns (AllocateResponse) {}
-  rpc Free(FreeRequest) returns (FreeResponse) {}
-  rpc ListServices(google.protobuf.Empty) returns (ServiceList) {}
-  rpc GetStats(google.protobuf.Empty) returns (Statistics) {}
-  rpc GetStatsStream(google.protobuf.Empty) returns (stream Statistics) {}
-  rpc SetStats(Statistics) returns (google.protobuf.Empty) {}
+message Statistics {
+    map<int32, FlowUnit> flow = 1;
 }
-
-//message RegisterRequest {
-//  string self_url = 1;
-//}
-//
-//message RegisterResponse {
-//  string token = 1;
-//}
-//
-//// ShadowsocksManagerMaster rpc service provices an interface for slaves to register 
-//// or request other informations on the master.
-//service ShadowsocksManagerMaster {
-//  // Register registes self on the master node.
-//  rpc Register(RegisterRequest) returns (RegisterResponse) {}
-//}
