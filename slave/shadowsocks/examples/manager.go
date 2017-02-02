@@ -8,12 +8,10 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	ss "github.com/arkbriar/ss-mgr/slave/shadowsocks"
-	"github.com/arkbriar/ss-mgr/slave/shadowsocks/process"
 )
 
 func addServers(mgr ss.Manager, ports ...int32) {
 	s := &ss.Server{
-		/* Port:     8001, */
 		Host:     "0.0.0.0",
 		Password: "SomePass",
 		Method:   "aes-256-cfb",
@@ -50,7 +48,6 @@ func contextMain(ctx context.Context) {
 	if err := mgr.Listen(context.Background()); err != nil {
 		log.Panicln("Can not listen udp address 127.0.0.1:6001, ", err)
 	}
-	go mgr.WatchDaemon(context.Background(), nil)
 
 	ports := []int32{8001, 8002, 8003, 8004, 8005}
 	addServers(mgr, ports...)
@@ -59,18 +56,19 @@ func contextMain(ctx context.Context) {
 	if err != nil {
 		log.Panicln(err)
 	}
-	pid := s.Process().Pid
-	log.Infoln("Running ss servers: ", mgr.ListServers())
-	log.Infoln("Waiting for 10s ...")
+	log.Info("Running ss servers: ", mgr.ListServers())
+	log.Info("Waiting for 2s ...")
 	select {
 	case <-ctx.Done():
-	case <-time.After(10 * time.Second):
-		log.Infoln("Removing ss server(8001)")
+	case <-time.After(2 * time.Second):
+		log.Info("Removing ss server(8001)")
 		if err := mgr.Remove(8001); err != nil {
 			log.Panicln("Can not remove server, ", err)
 		}
-		if process.Alive(pid) {
-			log.Panicf("Server process %d is not supposed to be alive after remove action.", pid)
+		time.Sleep(100 * time.Millisecond)
+		if s.Alive() {
+			log.Debugf("Server is not supposed to be alive after remove action.")
+
 		}
 	}
 	<-ctx.Done()
