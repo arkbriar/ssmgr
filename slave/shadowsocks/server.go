@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -135,6 +136,7 @@ type Server struct {
 	rtMu    sync.RWMutex
 	runPath string
 	runtime *serverRuntime
+	stat    atomic.Value
 }
 
 // WithUDPRelay enables udp relay.
@@ -170,6 +172,12 @@ func (s *Server) WithOneTimeAuth() *Server {
 // WithNameServer sets the default nameserver to use.
 func (s *Server) WithNameServer(ns string) *Server {
 	s.opts.NameServer = ns
+	return s
+}
+
+// WithPidFile sets the pid file.
+func (s *Server) WithPidFile(f string) *Server {
+	s.opts.PidFile = f
 	return s
 }
 
@@ -257,8 +265,9 @@ func (s *Server) Command() string {
 func (s *Server) clone() *Server {
 	s.rtMu.RLock()
 	defer s.rtMu.RUnlock()
-	c := s
-	return c
+	c := *s
+	c.rtMu = sync.RWMutex{}
+	return &c
 }
 
 // String implements the Stringer interface.
@@ -268,9 +277,9 @@ func (s *Server) String() string {
 }
 
 var (
-	errWatchDaemonNotEnabled     = errors.New("Watch daemon is not enabled.")
-	errWatchDaemonAlreadyStarted = errors.New("Watch daemon is already started.")
-	errWatchDaemonIsNotStarted   = errors.New("Watch daemon is not started.")
+	errWatchDaemonNotEnabled     = errors.New("watch daemon is not enabled")
+	errWatchDaemonAlreadyStarted = errors.New("watch daemon is already started")
+	errWatchDaemonIsNotStarted   = errors.New("watch daemon is not started")
 )
 
 func (s *Server) startWatchDaemon() error {
@@ -292,6 +301,8 @@ func (s *Server) startWatchDaemon() error {
 					log.Warnf("Server(%s) is detected dead.", s)
 					if err := s.forceExec(); err != nil {
 						log.Warnf("Can not restart server(%s), %s", s, err)
+					} else {
+						log.Infof("Server(%s) is back to work.", s)
 					}
 				}
 			}
@@ -382,14 +393,14 @@ func (s *Server) load(filename string) error {
 }
 
 var (
-	errServerAlreadyStarted = errors.New("Server already started.")
-	errServerNotStarted     = errors.New("Server not started.")
+	errServerAlreadyStarted = errors.New("server already started")
+	errServerNotStarted     = errors.New("server not started")
 )
 
 func (s *Server) unsafeExec() error {
 	cmd := s.command()
 	if len(s.runPath) != 0 {
-		logw, err := os.Open(path.Join(s.runPath, "ss_server.log"))
+		logw, err := os.Create(path.Join(s.runPath, "ss_server.log"))
 		if err != nil {
 			log.Warnf("Can not open log file, %s", err)
 		} else {
@@ -401,9 +412,9 @@ func (s *Server) unsafeExec() error {
 			return err
 		}
 		proc, err := findProcFromPidFile(s.opts.PidFile)
-		log.Warn(err)
 		if err != nil {
-			return errors.New("Can not get process from pid file.")
+			log.Warn(err)
+			return errors.New("can not get process from pid file")
 		}
 		s.runtime = &serverRuntime{
 			proc: proc,
@@ -415,9 +426,6 @@ func (s *Server) unsafeExec() error {
 		s.runtime = &serverRuntime{
 			proc: cmd.Process,
 		}
-	}
-	s.Extra = &serverExtra{
-		StartTime: time.Now(),
 	}
 	return nil
 }
@@ -437,32 +445,39 @@ func (s *Server) forceExec() error {
 	return s.unsafeExec()
 }
 
+func (s *Server) afterStart() {
+	if s.watchDaemon.enable {
+		err := s.startWatchDaemon()
+		if err != nil {
+			log.Warn(err)
+		}
+	}
+	if s.connLimit > 0 {
+		err := s.createConnLimit()
+		if err != nil {
+			log.Warn(err)
+		}
+	}
+}
+
 // Start starts the server.
 func (s *Server) Start() error {
 	if !s.valid() {
-		return errors.New("Invalid server configuration.")
+		return errors.New("invalid server configuration")
 	}
 	if len(s.runPath) == 0 {
-		return errors.New("Start server without run path is not supported.")
+		return errors.New("start server without run path is not supported")
+	}
+	s.Extra = &serverExtra{
+		StartTime: time.Now(),
 	}
 	err := s.save(path.Join(s.runPath, "ss_server.conf"))
 	if err != nil {
 		return err
 	}
 	err = s.exec()
-	if err != nil {
-		if s.watchDaemon.enable {
-			err := s.startWatchDaemon()
-			if err != nil {
-				log.Warn(err)
-			}
-		}
-		if s.connLimit > 0 {
-			err := s.createConnLimit()
-			if err != nil {
-				log.Warn(err)
-			}
-		}
+	if err == nil {
+		s.afterStart()
 	}
 	return err
 }
@@ -475,13 +490,16 @@ func (s *Server) kill() error {
 	proc := s.runtime.proc
 	s.runtime = nil
 	s.Extra = nil
-	go func(proc *os.Process, defers ...func()) {
-		for _, d := range defers {
-			defer d()
-		}
-		proc.Kill()
-		proc.Wait()
-	}(proc, s.rtMu.Unlock)
+	/* go func(proc *os.Process, defers ...func()) {
+	 *     for _, d := range defers {
+	 *         defer d()
+	 *     }
+	 *     proc.Kill()
+	 *     proc.Wait()
+	 * }(proc, s.rtMu.Unlock) */
+	proc.Kill()
+	proc.Wait()
+	s.rtMu.Unlock()
 	return nil
 }
 
@@ -493,18 +511,20 @@ func (s *Server) forceKill() error {
 	proc := s.runtime.proc
 	s.runtime = nil
 	s.Extra = nil
-	go func(proc *os.Process, defers ...func()) {
-		for _, d := range defers {
-			defer d()
-		}
-		proc.Kill()
-		proc.Wait()
-	}(proc, s.rtMu.Unlock)
+	/* go func(proc *os.Process, defers ...func()) {
+	 *     for _, d := range defers {
+	 *         defer d()
+	 *     }
+	 *     proc.Kill()
+	 *     proc.Wait()
+	 * }(proc, s.rtMu.Unlock) */
+	proc.Kill()
+	proc.Wait()
+	s.rtMu.Unlock()
 	return nil
 }
 
-// Stop stops the server.
-func (s *Server) Stop() error {
+func (s *Server) beforeStop() {
 	if s.connLimit > 0 {
 		err := s.deleteConnLimit()
 		if err != nil {
@@ -517,6 +537,11 @@ func (s *Server) Stop() error {
 			log.Warn(err)
 		}
 	}
+}
+
+// Stop stops the server.
+func (s *Server) Stop() error {
+	s.beforeStop()
 	return s.kill()
 }
 
@@ -527,8 +552,8 @@ func (s *Server) restart() error {
 
 // Alive returns if the server is alive
 func (s *Server) Alive() bool {
-	s.rtMu.Lock()
-	defer s.rtMu.Unlock()
+	s.rtMu.RLock()
+	defer s.rtMu.RUnlock()
 	return s.runtime != nil && s.runtime.alive()
 }
 
@@ -541,6 +566,10 @@ func (s *Server) restoreRuntime(runPath string) error {
 	}
 	s.runtime = &serverRuntime{
 		proc: proc,
+	}
+	if !s.runtime.alive() {
+		s.runtime = nil
+		log.Debugf("Recovered process is not alive, reset runtime.")
 	}
 	return nil
 }
@@ -558,7 +587,31 @@ func (s *Server) Restore(runPath string) error {
 	err = s.restoreRuntime(runPath)
 	if err != nil {
 		log.Warnf("Can not restore runtime of server (%s)", s)
+	} else {
+		if s.Alive() {
+			s.afterStart()
+		}
 	}
 	s.runPath = runPath
 	return nil
+}
+
+// Stat represents the statistics collected from a shadowsocks server
+type Stat struct {
+	Traffic int64 `json:"traffic"` // Transfered traffic in bytes
+	/* Rx      int64 `json:"rx"`      // Receive in bytes
+	 * Tx      int64 `json:"tx"`      // Transmit in bytes */
+}
+
+func (s *Server) updateStat(stat Stat) {
+	s.stat.Store(stat)
+}
+
+// GetStat returns the stats of the server.
+func (s *Server) GetStat() Stat {
+	stat := s.stat.Load()
+	if stat != nil {
+		return stat.(Stat)
+	}
+	return Stat{}
 }
