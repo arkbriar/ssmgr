@@ -63,12 +63,12 @@ func (s *slaveServer) Allocate(ctx context.Context, r *proto.AllocateRequest) (*
 		Method:   r.GetMethod(),
 		Timeout:  60,
 	}
-	log.Debugf("Recv allocate request: %s", r)
+	log.Debugf("Recv allocate request: %v", r)
 	return &google_protobuf.Empty{}, s.mgr.Add(ss)
 }
 
 func (s *slaveServer) Free(ctx context.Context, r *proto.FreeRequest) (*google_protobuf.Empty, error) {
-	log.Debugf("Recv free request: %s", r)
+	log.Debugf("Recv free request: %v", r)
 	return &google_protobuf.Empty{}, s.mgr.Remove(r.GetPort())
 }
 
@@ -81,7 +81,7 @@ func (s *slaveServer) GetStats(ctx context.Context, _ *google_protobuf.Empty) (*
 			StartTime: ss.Extra.StartTime.UnixNano(),
 		}
 	}
-	log.Debugf("Stats now: %s", flow)
+	log.Debugf("Stats now: %v", flow)
 	return &proto.Statistics{
 		Flow: flow,
 	}, nil
