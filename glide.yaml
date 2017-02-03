@@ -18,3 +18,7 @@ import:
 - package: github.com/kataras/go-mailer
 - package: github.com/kataras/iris
   version: ^6.1.2
+- package: gopkg.in/square/go-jose.v1
+  subpackages:
+  - json
+  - cipher

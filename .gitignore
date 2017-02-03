@@ -27,3 +27,5 @@ _testmain.go
 /vendor
 
 /protocol/*.pb.go
+
+ssmgr.db

@@ -1,5 +1,5 @@
-hash: 6cb4e7d956fb9be87955fcc1f2bb1585c5a21a36fef01538072b247d11ccd71b
-updated: 2017-02-03T13:25:31.264558696+08:00
+hash: 4eb6a4745f8ac14c0c9268adc43f784e5ca21a8d871921e28774923cdde71f38
+updated: 2017-02-03T13:37:36.781822861+08:00
 imports:
 - name: github.com/asaskevich/govalidator
   version: 7b3beb6df3c42abd3509abfc3bcacc0fbfb7c877
@@ -155,4 +155,9 @@ imports:
   - stats
   - tap
   - transport
+- name: gopkg.in/square/go-jose.v1
+  version: aa2e30fdd1fe9dd3394119af66451ae790d50e0d
+  subpackages:
+  - cipher
+  - json
 testImports: []
