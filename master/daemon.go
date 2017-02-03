@@ -14,8 +14,6 @@ import (
 	rpc "github.com/arkbriar/ss-mgr/protocol"
 )
 
-const interval = time.Minute * 5
-
 type Slave struct {
 	stub rpc.SSMgrSlaveClient
 	ctx  context.Context
@@ -64,7 +62,7 @@ func Monitoring() {
 		if err := checkUserLimit(); err != nil {
 			logrus.Error("Check user limit error: ", err.Error())
 		}
-		time.Sleep(interval)
+		time.Sleep(time.Duration(config.Interval) * time.Second)
 	}
 }
 
@@ -133,9 +131,15 @@ func updateStats(serverID string, slave *Slave) error {
 			UserID:    portMap[int(port)].UserID,
 			ServerID:  serverID,
 			StartTime: stat.StartTime,
-		}).FirstOrInit(&record)
-		record.Flow += stat.Traffic
-		db.Save(&record)
+		}).FirstOrCreate(&record)
+
+		// db.Save(&record) not works as expected due to gorm's bug
+
+		db.Model(&orm.FlowRecord{}).Where(&orm.FlowRecord{
+			UserID:    portMap[int(port)].UserID,
+			ServerID:  serverID,
+			StartTime: stat.StartTime,
+		}).Update("flow", record.Flow + stat.Traffic)
 	}
 
 	return nil

@@ -7,8 +7,8 @@ import (
 	_ "github.com/jinzhu/gorm/dialects/sqlite"
 )
 
-func New() *gorm.DB {
-	db, err := gorm.Open("sqlite3", "ssmgr.db")
+func New(dialect, arg string) *gorm.DB {
+	db, err := gorm.Open(dialect, arg)
 	if err != nil {
 		log.Fatal("failed to connect database: ", err.Error())
 	}

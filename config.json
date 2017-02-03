@@ -7,19 +7,11 @@
     "time": 180
   },
   "slaves": {
-    "local1": {
+    "local": {
       "host": "127.0.0.1",
-      "port": 8001,
-      "token": "localtest1token",
-      "name": "Local Test 1",
-      "portMax": 30500,
-      "portMin": 30000
-    },
-    "local2": {
-      "host": "localhost",
-      "port": 8002,
-      "token": "localtest2token",
-      "name": "Local Test 2",
+      "port": 6001,
+      "token": "SSMGRTEST",
+      "name": "Localhost (test)",
       "portMax": 20500,
       "portMin": 20000
     }
@@ -29,5 +21,10 @@
     "port": 25,
     "username": "postmaster@sandbox06c58b6b9aa1451db3000d078cbee529.mailgun.org",
     "password": "a49c133b1e7f06518f69e9edb2ffaf16"
-  }
+  },
+  "database": {
+    "dialect": "sqlite3",
+    "args": "ssmgr.db"
+  },
+  "interval": 30
 }

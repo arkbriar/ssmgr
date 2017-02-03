@@ -71,7 +71,15 @@ func handleEmail(ctx *iris.Context) {
 		return
 	}
 
-	// TODO: Prevent send to one email for too many times (saying, 10 mail per day)
+	// Prevent send to one email addr for too many times
+	var sentCount int
+	timeFrom := time.Now().Add(-verifyCodeExpire * time.Second).Unix()
+	db.Model(&orm.VerifyCode{}).Where("email = ? AND time > ?", request.Email, timeFrom).Count(&sentCount)
+	if sentCount >= 3 {
+		ctx.SetStatusCode(iris.StatusForbidden)
+		ctx.WriteString("sent too many times")
+		return
+	}
 
 	vcode := fmt.Sprintf("%06d", rand.Int31n(1000000))
 	iris.Logger.Printf("Send verify code to %s: %s", request.Email, vcode)
@@ -117,7 +125,7 @@ func handleCode(ctx *iris.Context) {
 	}
 
 	var user orm.User
-	db.Where("email = ?", request.Email).First(&user)
+	db.Where("email = ? AND disabled = 0", request.Email).First(&user)
 
 	if user.Email == "" {
 		// User is not created yet
