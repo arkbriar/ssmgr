@@ -172,6 +172,7 @@ func (mgr *manager) Add(s *Server) error {
 		return err
 	}
 	mgr.servers[s.Port] = s
+	log.Infof("Add server(%s)", s)
 	return nil
 }
 
@@ -183,11 +184,11 @@ func (mgr *manager) Remove(port int32) error {
 		return ErrServerNotFound
 	}
 	delete(mgr.servers, port)
-	log.Debugf("Removing server(%s)", s)
 	if err := s.Stop(); err != nil {
 		log.Warn(err)
 	}
 	os.RemoveAll(s.runPath)
+	log.Info("Remove server(%s)", s)
 	return nil
 }
 
@@ -303,4 +304,5 @@ func (mgr *manager) CleanUp() {
 	for p := range mgr.ListServers() {
 		mgr.Remove(p)
 	}
+	log.Infof("Clean up all managed servers.")
 }

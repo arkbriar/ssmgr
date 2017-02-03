@@ -3,6 +3,7 @@ package slave
 import (
 	"errors"
 
+	log "github.com/Sirupsen/logrus"
 	proto "github.com/arkbriar/ss-mgr/protocol"
 	ss "github.com/arkbriar/ss-mgr/slave/shadowsocks"
 	google_protobuf "github.com/golang/protobuf/ptypes/empty"
@@ -56,27 +57,31 @@ func UnaryAuthInterceptor(token string) grpc.UnaryServerInterceptor {
 
 func (s *slaveServer) Allocate(ctx context.Context, r *proto.AllocateRequest) (*google_protobuf.Empty, error) {
 	ss := &ss.Server{
-		Host: "0.0.0.0",
-		Port: r.GetPort(),
+		Host:     "0.0.0.0",
+		Port:     r.GetPort(),
 		Password: r.GetPassword(),
-		Method: r.GetMethod(),
-		Timeout: 60,
+		Method:   r.GetMethod(),
+		Timeout:  60,
 	}
-	return nil, s.mgr.Add(ss)
+	log.Debugf("Recv allocate request: %s", r)
+	return &google_protobuf.Empty{}, s.mgr.Add(ss)
 }
 
 func (s *slaveServer) Free(ctx context.Context, r *proto.FreeRequest) (*google_protobuf.Empty, error) {
-	return nil, s.mgr.Remove(r.GetPort())
+	log.Debugf("Recv free request: %s", r)
+	return &google_protobuf.Empty{}, s.mgr.Remove(r.GetPort())
 }
 
 func (s *slaveServer) GetStats(ctx context.Context, _ *google_protobuf.Empty) (*proto.Statistics, error) {
+	log.Debugf("Recv get stat request")
 	flow := make(map[int32]*proto.FlowUnit)
 	for port, ss := range s.mgr.ListServers() {
 		flow[port] = &proto.FlowUnit{
-			Traffic: ss.GetStat().Traffic,
+			Traffic:   ss.GetStat().Traffic,
 			StartTime: ss.Extra.StartTime.UnixNano(),
 		}
 	}
+	log.Debugf("Stats now: %s", flow)
 	return &proto.Statistics{
 		Flow: flow,
 	}, nil
