@@ -14,8 +14,6 @@ import (
 	rpc "github.com/arkbriar/ss-mgr/protocol"
 )
 
-const interval = time.Minute * 5
-
 type Slave struct {
 	stub rpc.SSMgrSlaveClient
 	ctx  context.Context
@@ -64,7 +62,7 @@ func Monitoring() {
 		if err := checkUserLimit(); err != nil {
 			logrus.Error("Check user limit error: ", err.Error())
 		}
-		time.Sleep(interval)
+		time.Sleep(time.Duration(config.Interval) * time.Second)
 	}
 }
 

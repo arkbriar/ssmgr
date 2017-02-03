@@ -46,6 +46,7 @@ type Config struct {
 		Dialect string `json:"dialect"`
 		Args    string `json:"args"`
 	} `json:"database"`
+	Interval int `json:"interval"`
 }
 
 var db *gorm.DB

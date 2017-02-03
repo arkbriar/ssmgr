@@ -25,5 +25,6 @@
   "database": {
     "dialect": "sqlite3",
     "args": "ssmgr.db"
-  }
+  },
+  "interval": 30
 }
