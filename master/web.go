@@ -47,14 +47,14 @@ func NewApp() *iris.Framework {
 		path := ctx.Param("path")
 		switch {
 		case strings.HasPrefix(path, "/libs"):
-			ctx.ServeFile("./public" + path, true)
+			ctx.ServeFile("./public"+path, true)
 		case strings.HasPrefix(path, "/public"):
-			ctx.ServeFile("." + path, true)
+			ctx.ServeFile("."+path, true)
 		default:
 			ctx.ServeFile("./views/index.html", true)
 		}
 	})
-	
+
 	return app
 }
 

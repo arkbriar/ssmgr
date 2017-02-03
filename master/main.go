@@ -3,9 +3,9 @@ package main
 import (
 	"encoding/json"
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"os"
-	"fmt"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/jinzhu/gorm"
@@ -41,30 +41,30 @@ type Config struct {
 	} `json:"email"`
 }
 
-var db   *gorm.DB
+var db *gorm.DB
 
 var config *Config
 
 func main() {
-	
+
 	logrus.SetLevel(logrus.DebugLevel)
-	
+
 	var err error
 	config, err = parseConfig(*configPath)
 	if err != nil {
 		logrus.Fatal(config)
 	}
-	
+
 	db = orm.New()
-	
+
 	InitSlaves()
 
 	CleanInvalidAllocation()
 
 	AllocateAllUsers()
-	
+
 	go Monitoring()
-	
+
 	webServer := NewApp()
 	listenAddr := fmt.Sprintf("%s:%d", config.Host, config.Port)
 	webServer.Listen(listenAddr)

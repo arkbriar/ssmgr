@@ -1,8 +1,8 @@
 package main
 
 import (
-	"time"
 	"math/rand"
+	"time"
 )
 
 func init() {
@@ -10,6 +10,7 @@ func init() {
 }
 
 const passwordLength = 10
+
 var letterRunes = []rune("abcdefghijklmnopqrstuvwxyz0123456789")
 
 func RandomPassword() string {
