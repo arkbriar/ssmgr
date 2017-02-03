@@ -344,9 +344,11 @@ func (s *Server) stopWatchDaemon() error {
 	return nil
 }
 
-func (s *Server) connLimitIptablesRule() []string {
+func (s *Server) connLimitIPTablesRule() []string {
 	if s.connLimit != 0 {
-		return []string{"-p", "tcp", "--syn", "--dport", fmt.Sprint(s.Port), "-m", "connlimit", "--connlimit-above", fmt.Sprint(s.connLimit), "-j", "REJECT", "--reject-with", "tcp-reset"}
+		return []string{"-p", "tcp", "--syn", "--dport", fmt.Sprint(s.Port), "-m", "connlimit",
+			"--connlimit-above", fmt.Sprint(s.connLimit), "-j", "REJECT", "--reject-with", "tcp-reset",
+			"-m", "comment", "--comment", fmt.Sprintf("SS_CONN_LIMIT(%d) %d", s.Port, s.connLimit)}
 	}
 	return nil
 }
@@ -355,7 +357,7 @@ func (s *Server) createConnLimit() error {
 	if ipt == nil {
 		return nil
 	}
-	rule := s.connLimitIptablesRule()
+	rule := s.connLimitIPTablesRule()
 	err := ipt.AppendUnique("filter", "INPUT", rule...)
 	if err != nil {
 		return err
@@ -367,7 +369,7 @@ func (s *Server) deleteConnLimit() error {
 	if ipt == nil {
 		return nil
 	}
-	rule := s.connLimitIptablesRule()
+	rule := s.connLimitIPTablesRule()
 	err := ipt.Delete("filter", "INPUT", rule...)
 	if err != nil {
 		return err
@@ -376,7 +378,7 @@ func (s *Server) deleteConnLimit() error {
 }
 
 func (s *Server) checkConnLimit() (bool, error) {
-	return ipt.Exists("filter", "INPUT", s.connLimitIptablesRule()...)
+	return ipt.Exists("filter", "INPUT", s.connLimitIPTablesRule()...)
 }
 
 func readPidFile(filename string) (int, error) {
