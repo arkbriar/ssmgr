@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"os/user"
 	"path"
 	"runtime"
 	"strconv"
@@ -23,6 +24,7 @@ import (
 
 var (
 	ipt *iptables.IPTables
+	usr *user.User
 )
 
 func init() {
@@ -33,7 +35,12 @@ func init() {
 	if runtime.GOOS != "linux" {
 		log.Warnf("Connection limit and auto ban is not supported on non-linux system.")
 	} else {
-		ipt, _ = iptables.New()
+		usr, _ = user.Current()
+		if usr.Name == "root" {
+			ipt, _ = iptables.New()
+		} else {
+			log.Warnf("Connection limit and auto ban is only supported when running with root.")
+		}
 	}
 }
 
@@ -202,7 +209,9 @@ func (s *Server) WithFireWall() *Server {
 	if runtime.GOOS != "linux" {
 		return s
 	}
-	s.opts.FireWall = true
+	if usr.Name == "root" {
+		s.opts.FireWall = true
+	}
 	return s
 }
 
@@ -343,6 +352,9 @@ func (s *Server) connLimitIptablesRule() []string {
 }
 
 func (s *Server) createConnLimit() error {
+	if ipt == nil {
+		return nil
+	}
 	rule := s.connLimitIptablesRule()
 	err := ipt.AppendUnique("filter", "INPUT", rule...)
 	if err != nil {
@@ -352,6 +364,9 @@ func (s *Server) createConnLimit() error {
 }
 
 func (s *Server) deleteConnLimit() error {
+	if ipt == nil {
+		return nil
+	}
 	rule := s.connLimitIptablesRule()
 	err := ipt.Delete("filter", "INPUT", rule...)
 	if err != nil {
