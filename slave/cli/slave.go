@@ -56,7 +56,7 @@ func run(ctx context.Context) error {
 	if err := mgr.Listen(context.Background()); err != nil {
 		return fmt.Errorf("Can not listen udp address 127.0.0.1:%d, %s", *managerPort, err)
 	}
-	conn, err := net.Listen("tcp", fmt.Sprintf(":%d", *managerPort))
+	conn, err := net.Listen("tcp", fmt.Sprintf(":%d", *port))
 	if err != nil {
 		return err
 	}
