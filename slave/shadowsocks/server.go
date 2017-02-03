@@ -460,19 +460,24 @@ func (s *Server) exec() error {
 	return nil
 }
 
-func (s *Server) afterStart() {
+func (s *Server) afterStart() []error {
+	errs := make([]error, 0)
 	if s.watchDaemon.enable {
 		err := s.startWatchDaemon()
 		if err != nil {
-			log.Warn(err)
+			errs = append(errs, err)
 		}
 	}
 	if s.connLimit > 0 {
 		err := s.createConnLimit()
 		if err != nil {
-			log.Warn(err)
+			errs = append(errs, err)
 		}
 	}
+	if len(errs) == 0 {
+		return nil
+	}
+	return errs
 }
 
 func (s *Server) start() error {
@@ -492,9 +497,14 @@ func (s *Server) start() error {
 	if err != nil {
 		return err
 	}
-	err = s.exec()
+	err := s.exec()
 	if err == nil {
-		s.afterStart()
+		errs := s.afterStart()
+		if errs != nil {
+			for _, err := range errs {
+				log.Warn(err)
+			}
+		}
 	}
 	return err
 }
@@ -503,7 +513,7 @@ func (s *Server) start() error {
 func (s *Server) Start() error {
 	s.rtMu.Lock()
 	defer s.rtMu.Unlock()
-	return s.start()
+	return err
 }
 
 func (s *Server) kill() error {
