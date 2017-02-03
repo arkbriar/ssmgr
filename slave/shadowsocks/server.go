@@ -309,8 +309,10 @@ func (s *Server) startWatchDaemon() error {
 			case <-time.After(5 * time.Second):
 				if !s.Alive() {
 					log.Warnf("Server(%s) is detected dead.", s)
-					if err := s.forceExec(); err != nil {
-						log.Warnf("Can not restart server(%s), %s", s, err)
+					if err := s.revive(); err != nil {
+						if err != errServerAlive {
+							log.Warnf("Can not restart server(%s), %s", s, err)
+						}
 					} else {
 						log.Infof("Server(%s) is back to work.", s)
 					}
@@ -403,6 +405,7 @@ func (s *Server) load(filename string) error {
 }
 
 var (
+	errServerAlive          = errors.New("Server is alive.")
 	errServerAlreadyStarted = errors.New("server already started")
 	errServerNotStarted     = errors.New("server not started")
 )
@@ -446,12 +449,6 @@ func (s *Server) exec() error {
 	if s.runtime != nil {
 		return errServerAlreadyStarted
 	}
-	return s.unsafeExec()
-}
-
-func (s *Server) forceExec() error {
-	s.rtMu.Lock()
-	defer s.rtMu.Unlock()
 	return s.unsafeExec()
 }
 
@@ -513,10 +510,10 @@ func (s *Server) kill() error {
 	return nil
 }
 
-func (s *Server) forceKill() error {
+func (s *Server) forceKill() {
 	s.rtMu.Lock()
 	if s.runtime == nil {
-		return nil
+		return
 	}
 	proc := s.runtime.proc
 	s.runtime = nil
@@ -531,7 +528,6 @@ func (s *Server) forceKill() error {
 	proc.Kill()
 	proc.Wait()
 	s.rtMu.Unlock()
-	return nil
 }
 
 func (s *Server) beforeStop() {
@@ -565,6 +561,24 @@ func (s *Server) Alive() bool {
 	s.rtMu.RLock()
 	defer s.rtMu.RUnlock()
 	return s.runtime != nil && s.runtime.alive()
+}
+
+// revive starts the process when it is dead.
+func (s *Server) revive() error {
+	s.rtMu.Lock()
+	defer s.rtMu.Unlock()
+	if s.runtime == nil || !s.runtime.alive() {
+		s.runtime = nil
+		if err := s.unsafeExec(); err != nil {
+			return err
+		}
+		s.Extra = &serverExtra{
+			StartTime: time.Now(),
+		}
+	} else {
+		return errServerAlive
+	}
+	return nil
 }
 
 func (s *Server) restoreRuntime(runPath string) error {
