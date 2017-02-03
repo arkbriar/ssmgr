@@ -117,7 +117,7 @@ func handleCode(ctx *iris.Context) {
 	}
 
 	var user orm.User
-	db.Where("email = ?", request.Email).First(&user)
+	db.Where("email = ? AND disabled = 0", request.Email).First(&user)
 
 	if user.Email == "" {
 		// User is not created yet

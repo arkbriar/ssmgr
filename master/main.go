@@ -13,7 +13,10 @@ import (
 	"github.com/arkbriar/ss-mgr/master/orm"
 )
 
-var configPath = flag.String("c", "config.json", "path of config file")
+var (
+	configPath = flag.String("c", "config.json", "Path of config file")
+	verbose    = flag.Bool("v", false, "Verbose mode")
+)
 
 type Config struct {
 	Host     string `json:"host"`
@@ -39,6 +42,10 @@ type Config struct {
 		FromAddr  string `json:"fromAddr"`
 		FromAlias string `json:"fromAddr"`
 	} `json:"email"`
+	Database struct {
+		Dialect string `json:"dialect"`
+		Args    string `json:"args"`
+	} `json:"database"`
 }
 
 var db *gorm.DB
@@ -47,7 +54,9 @@ var config *Config
 
 func main() {
 
-	logrus.SetLevel(logrus.DebugLevel)
+	if *verbose {
+		logrus.SetLevel(logrus.DebugLevel)
+	}
 
 	var err error
 	config, err = parseConfig(*configPath)
@@ -55,7 +64,7 @@ func main() {
 		logrus.Fatal(config)
 	}
 
-	db = orm.New()
+	db = orm.New(config.Database.Dialect, config.Database.Args)
 
 	InitSlaves()
 

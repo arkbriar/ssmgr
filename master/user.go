@@ -51,7 +51,7 @@ func RemoveUser(userIDs ...string) {
 	db.Where("user_id IN (?)", userIDs).Scan(&allocs)
 
 	// gorm may print "no such table", just ignore it
-	db.Debug().Where("user_id IN (?)", userIDs).Delete(&orm.Allocation{})
+	db.Where("user_id IN (?)", userIDs).Delete(&orm.Allocation{})
 
 	// Freeing ports is slow, do it in another thread
 	go func() {
