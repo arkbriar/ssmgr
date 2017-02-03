@@ -54,7 +54,7 @@ var db *gorm.DB
 var config *Config
 
 func main() {
-
+	flag.Parse()
 	if *verbose {
 		logrus.SetLevel(logrus.DebugLevel)
 	}
