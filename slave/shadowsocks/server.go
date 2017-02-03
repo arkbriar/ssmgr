@@ -86,6 +86,10 @@ func (o *serverOptions) args() []string {
 	return args
 }
 
+func (o *serverOptions) reset() {
+	*o = serverOptions{}
+}
+
 var methods = []string{
 	"table", "rc4", "rc4-md5", "aes-128-cfb", "aes-192-cfb", "aes-256-cfb",
 	"aes-128-ctr", "aes-192-ctr", "aes-256-ctr", "bf-cfb", "camellia-128-cfb",
@@ -193,7 +197,7 @@ func (s *Server) WithInterface(itf string) *Server {
 	return s
 }
 
-// WithFireWall enables to firewall for auto ban.
+// WithFireWall enables firewall for auto ban.
 func (s *Server) WithFireWall() *Server {
 	if runtime.GOOS != "linux" {
 		return s
@@ -236,6 +240,12 @@ func (s *Server) WithDefaults() *Server {
 		WithWatchDaemon().
 		WithUDPRelay().
 		WithVerbose()
+}
+
+// ResetOptions sets all the server options to default.
+func (s *Server) ResetOptions() *Server {
+	s.opts.reset()
+	return s
 }
 
 func (s *Server) args() []string {
