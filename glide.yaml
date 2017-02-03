@@ -6,8 +6,15 @@ import:
   - proto
   - ptypes/empty
 - package: github.com/jinzhu/gorm
+  subpackages:
+  - dialects/sqlite
 - package: github.com/satori/go.uuid
 - package: golang.org/x/net
   subpackages:
   - context
 - package: google.golang.org/grpc
+- package: github.com/asaskevich/govalidator
+  version: ^5.0.0
+- package: github.com/kataras/go-mailer
+- package: github.com/kataras/iris
+  version: ^6.1.2
