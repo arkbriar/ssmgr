@@ -133,9 +133,15 @@ func updateStats(serverID string, slave *Slave) error {
 			UserID:    portMap[int(port)].UserID,
 			ServerID:  serverID,
 			StartTime: stat.StartTime,
-		}).FirstOrInit(&record)
-		record.Flow += stat.Traffic
-		db.Save(&record)
+		}).FirstOrCreate(&record)
+
+		// db.Save(&record) not works as expected due to gorm's bug
+
+		db.Model(&orm.FlowRecord{}).Where(&orm.FlowRecord{
+			UserID:    portMap[int(port)].UserID,
+			ServerID:  serverID,
+			StartTime: stat.StartTime,
+		}).Update("flow", record.Flow + stat.Traffic)
 	}
 
 	return nil
