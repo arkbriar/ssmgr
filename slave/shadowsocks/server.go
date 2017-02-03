@@ -425,7 +425,7 @@ var (
 	errServerNotStarted     = errors.New("server not started")
 )
 
-func (s *Server) unsafeExec() error {
+func (s *Server) exec() error {
 	cmd := s.command()
 	if len(s.runPath) != 0 {
 		logw, err := os.Create(path.Join(s.runPath, "ss_server.log"))
@@ -458,15 +458,6 @@ func (s *Server) unsafeExec() error {
 	return nil
 }
 
-func (s *Server) exec() error {
-	s.rtMu.Lock()
-	defer s.rtMu.Unlock()
-	if s.runtime != nil {
-		return errServerAlreadyStarted
-	}
-	return s.unsafeExec()
-}
-
 func (s *Server) afterStart() {
 	if s.watchDaemon.enable {
 		err := s.startWatchDaemon()
@@ -482,8 +473,10 @@ func (s *Server) afterStart() {
 	}
 }
 
-// Start starts the server.
-func (s *Server) Start() error {
+func (s *Server) start() error {
+	if s.runtime != nil {
+		return errServerAlreadyStarted
+	}
 	if !s.valid() {
 		return errors.New("invalid server configuration")
 	}
@@ -504,45 +497,34 @@ func (s *Server) Start() error {
 	return err
 }
 
-func (s *Server) kill() error {
+// Start starts the server.
+func (s *Server) Start() error {
 	s.rtMu.Lock()
+	defer s.rtMu.Unlock()
+	return s.start()
+}
+
+func (s *Server) kill() error {
 	if s.runtime == nil {
 		return errServerNotStarted
 	}
 	proc := s.runtime.proc
 	s.runtime = nil
 	s.Extra = nil
-	/* go func(proc *os.Process, defers ...func()) {
-	 *     for _, d := range defers {
-	 *         defer d()
-	 *     }
-	 *     proc.Kill()
-	 *     proc.Wait()
-	 * }(proc, s.rtMu.Unlock) */
 	proc.Kill()
 	proc.Wait()
-	s.rtMu.Unlock()
 	return nil
 }
 
 func (s *Server) forceKill() {
-	s.rtMu.Lock()
 	if s.runtime == nil {
 		return
 	}
 	proc := s.runtime.proc
 	s.runtime = nil
 	s.Extra = nil
-	/* go func(proc *os.Process, defers ...func()) {
-	 *     for _, d := range defers {
-	 *         defer d()
-	 *     }
-	 *     proc.Kill()
-	 *     proc.Wait()
-	 * }(proc, s.rtMu.Unlock) */
 	proc.Kill()
 	proc.Wait()
-	s.rtMu.Unlock()
 }
 
 func (s *Server) beforeStop() {
@@ -560,15 +542,23 @@ func (s *Server) beforeStop() {
 	}
 }
 
-// Stop stops the server.
-func (s *Server) Stop() error {
+func (s *Server) stop() error {
 	s.beforeStop()
 	return s.kill()
 }
 
+// Stop stops the server.
+func (s *Server) Stop() error {
+	s.rtMu.Lock()
+	defer s.rtMu.Unlock()
+	return s.stop()
+}
+
 func (s *Server) restart() error {
-	s.forceKill()
-	return s.exec()
+	s.rtMu.Lock()
+	defer s.rtMu.Unlock()
+	s.stop()
+	return s.start()
 }
 
 // Alive returns if the server is alive
@@ -584,11 +574,8 @@ func (s *Server) revive() error {
 	defer s.rtMu.Unlock()
 	if s.runtime == nil || !s.runtime.alive() {
 		s.runtime = nil
-		if err := s.unsafeExec(); err != nil {
+		if err := s.start(); err != nil {
 			return err
-		}
-		s.Extra = &serverExtra{
-			StartTime: time.Now(),
 		}
 	} else {
 		return errServerAlive
