@@ -497,7 +497,7 @@ func (s *Server) start() error {
 	if err != nil {
 		return err
 	}
-	err := s.exec()
+	err = s.exec()
 	if err == nil {
 		errs := s.afterStart()
 		if errs != nil {
@@ -513,7 +513,7 @@ func (s *Server) start() error {
 func (s *Server) Start() error {
 	s.rtMu.Lock()
 	defer s.rtMu.Unlock()
-	return err
+	return s.start()
 }
 
 func (s *Server) kill() error {
