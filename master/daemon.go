@@ -139,7 +139,7 @@ func updateStats(serverID string, slave *Slave) error {
 			UserID:    portMap[int(port)].UserID,
 			ServerID:  serverID,
 			StartTime: stat.StartTime,
-		}).Update("flow", record.Flow + stat.Traffic)
+		}).Update("flow", stat.Traffic)
 	}
 
 	return nil
