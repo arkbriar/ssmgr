@@ -48,11 +48,11 @@ func run(ctx context.Context) error {
 		return errors.New("Early cancel.")
 	default:
 	}
-	mgr := ss.NewManager(*port)
+	mgr := ss.NewManager(*managerPort)
 	if err := mgr.Listen(context.Background()); err != nil {
 		return fmt.Errorf("Can not listen udp address 127.0.0.1:%d, %s", *managerPort, err)
 	}
-	conn, err := net.Listen("tcp", fmt.Sprintf(":%d", *port))
+	conn, err := net.Listen("tcp", fmt.Sprintf(":%d", *managerPort))
 	if err != nil {
 		return err
 	}

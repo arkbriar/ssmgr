@@ -133,7 +133,7 @@ func (mgr *manager) Listen(ctx context.Context) error {
 			}
 		}
 	}()
-	log.Infof("Listening on 127.0.0.1:%d ...", port)
+	log.Debugf("Listening on 127.0.0.1:%d", port)
 	return nil
 }
 
