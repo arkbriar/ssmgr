@@ -80,12 +80,11 @@ func main() {
 	db = orm.New(config.Database.Dialect, config.Database.Args)
 
 	InitSlaves()
-
 	InitGroups()
 
+	// If servers config is changed, clear removed and allocate new
 	CleanInvalidAllocation()
-
-	//AllocateAllUsers()
+	AllocateAllUsers()
 
 	go Monitoring()
 

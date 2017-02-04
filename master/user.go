@@ -30,14 +30,7 @@ func CreateUser(email string) *orm.User {
 	iris.Logger.Printf("New user: %s, email: %s", user.ID, user.Email)
 
 	// Allocating ports is slow, do it in another thread
-	go func() {
-		for serverID, _ := range slaves {
-			err := AllocateForUser(user.ID, serverID)
-			if err != nil {
-				logrus.Errorf("Failed to allocate ports for %s: %s", userID, err.Error())
-			}
-		}
-	}()
+	go allocateForUser(userID, "default")
 
 	return &user
 }
@@ -55,8 +48,12 @@ func ChangeUserGroup(userID, groupID string) error {
 	user.Group = groupID
 	user.Expired = time.Unix(user.Time, 0).Add(time.Duration(defaultGroup.Config.Limit.Time) * time.Hour).Unix()
 	user.QuotaFlow = group.Config.Limit.Flow * 1024 * 1024
-
 	// Let the daemon routine check whether to remove user (set disable = 1)
+
+	go func() {
+		removeUserAllocation(userID)
+		allocateForUser(userID, groupID)
+	}()
 
 	err := db.Debug().Save(&user).Error
 	return err
@@ -69,21 +66,22 @@ func RemoveUser(userIDs ...string) {
 
 	db.Table("users").Where("id IN (?)", userIDs).Updates(&orm.User{Disabled: true})
 
+	go removeUserAllocation(userIDs...)
+}
+
+func removeUserAllocation(userIDs ...string) {
 	var allocs []orm.Allocation
 	db.Where("user_id IN (?)", userIDs).Scan(&allocs)
 
 	// gorm may print "no such table", just ignore it
 	db.Where("user_id IN (?)", userIDs).Delete(&orm.Allocation{})
 
-	// Freeing ports is slow, do it in another thread
-	go func() {
-		for _, alloc := range allocs {
-			err := FreeAllocation(alloc.ServerID, alloc.Port)
-			if err != nil {
-				logrus.Errorf("Failed to free ports for %s: %s", alloc.UserID, err.Error())
-			}
+	for _, alloc := range allocs {
+		err := FreeAllocation(alloc.ServerID, alloc.Port)
+		if err != nil {
+			logrus.Errorf("Failed to free ports for %s: %s", alloc.UserID, err.Error())
 		}
-	}()
+	}
 }
 
 func AllocateAllUsers() {
@@ -91,16 +89,28 @@ func AllocateAllUsers() {
 	db.Where("disabled = 0").Find(&users)
 
 	for _, user := range users {
-		for id, _ := range slaves {
-			err := AllocateForUser(user.ID, id)
+		for _, serverID := range groups[user.Group].Config.SlaveIDs {
+			port, password, err := findOrInitAllocation(user.ID, serverID)
 			if err != nil {
 				logrus.Error(err.Error())
+				continue
 			}
+			logrus.Debugf("Allocate for user %s on server %s: Port %d, Password: %s",
+				user.ID, serverID, port, password)
 		}
 	}
 }
 
-func AllocateForUser(userID, serverID string) error {
+func allocateForUser(userID, groupID string) {
+	for _, serverID := range groups[groupID].Config.SlaveIDs {
+		err := allocateServerToUser(userID, serverID)
+		if err != nil {
+			logrus.Errorf("Failed to allocate ports for %s: %s", userID, err.Error())
+		}
+	}
+}
+
+func allocateServerToUser(userID, serverID string) error {
 	slave := slaves[serverID]
 	if slave == nil {
 		return fmt.Errorf("Server '%s' not found", serverID)
