@@ -1,0 +1,5 @@
+# Configuration File
+CONFFILE=/etc/ssmgr/config.slave.json
+
+# Extra command line arguments
+DAEMON_ARGS=
