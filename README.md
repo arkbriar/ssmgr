@@ -1,74 +1,58 @@
-# ss-mgr
+# SSMGR
 
-Shadowsocks manager of multiple servers.
+Shadowsocks manager of multiple servers, providing simple and easy way for users to acquire shadowsocks services over regions of servers.
 
 ## Compile
 
+First of all, install the dependent tools.
+
+For mac users,
+
+```bash
+brew install go node glide
+npm install -g webpack
+```
+
+For ubuntu/debian users, install golang toolchain (>=1.7) and
+
+```bash
+sudo apt install nodejs-legacy npm 
+sudo npm install -g webpack
+```
+
+Then,
+
+```bash
+make all
+```
+
 ## Install
+
+To install it completely (binaries and systemd services), 
+
+```bash
+# Install to /usr/local/ssmgr/*, /etc/default/ssmgr.{master/slave} and /lib/systemd/system/ssmgr-{master/slave}.service
+sudo make install
+```
+
+Or you can install master/slave seperately,
+
+```bash
+# Master
+sudo make install-master
+# Slave
+sudo make install-slave
+```
 
 ## Docs
 
-## Develop
-
-### Schedule
-
-Tasks | Original Due | Progress | Realized Date
-:-: | :-: | :-: | :-:
-Manager protocol and implementation | 2017-01-24 | `[==================90%]` | 
-Persistence layer (for master) | 2017-02-01 | `[=======40%===========]` |
-Slave server management (process monitor/manager) | 2017-02-05 | `[0%===================]` |
-Plugin protocol and implementation | 2017-02-10 | `[0%===================]` |
-Advanced features `*` | 2017-02-28 | `[0%===================]` |
-
-P.S. tasks with `*` will not be considered in release plans.
-
-1. We will freeze feature and prepare to test and release the first version when tasks without `*` are all realized.
-2. When developing advanced features, we will provide an option to disable them.
-
-### Persistence Layer (ORM Models)
-
-__Servers__:
-
-Hostname (Primary) | PublicIP | SlavePort | Bandwidth | Transfer | Provider | PrivateIP (Omitempty) | Extra (in JSON)
-:-: | :-: | :-: | :-: | :-: | :-: | :-: | :-:
-
-__Services__ (no primary key):
-
-Hostname (Foreign) | Port | Traffic | CreatedAt | Status | UserId (Foreign)
-:-: | :-: | :-: | :-: | :-: | :-:
-
-__Users & Admins__:
-
-ID (Primary) | Alias | Phone | Email | CreatedAt | Password (with salt and md5 hashed)
-:-: | :-: | :-: | :-: | :-: | :-: | :-:
-
-__Products__:
-
-ID (Primary) | Price | Description | Status | CreatedAt | Extra (in JSON) 
-:-: | :-: | :-: | :-: | :-: | :-:
-
-__Orders__:
-
-ID (Primary) | Channel | UserId (Foreign) | CreatedAt | Amount | ProductId (Foreign)
-:-: | :-: | :-: | :-: | :-: | :-:
-
-
 ### Protocols
 
-There are two roles in manager system, **master** and **slave**. Master manages all slaves where shadowsocks manager/server runs.
+#### Master-Slave
 
-There are two sets of protocols, one is called manager protocol and another is plugin protocol. 
-
-#### Manager Protocol
-
-Manager protocol is designed for communication between slaves and the master.
+Master and slaves are organized as: 
 
 ```
-+--------------+    +--------------+       +-------+
-|  ss-manager  |    |  ss-manager  |  ...  |       |
-+--------------+    +--------------+       +-------+
-        |                   |                  |
-        |                   |                  |
 +--------------+    +--------------+       +-------+
 | ss-mgr slave |    | ss-mgr slave |  ...  |       |
 +--------------+    +--------------+       +-------+
@@ -81,9 +65,11 @@ Manager protocol is designed for communication between slaves and the master.
              +---------------+
 ```
 
-We define the protocol as rpc methods in [a .proto file](manager/protocol/shadowsocks_manager.proto).
+We define the protocol as rpc methods in [a .proto file](manager/protocol/master_salve.proto).
 
-#### Plugin Protocol
+## Known Issues
+
+1. [Issues](https://github.com/arkbriar/ss-mgr/issues) here with `bug`, `enhancement` and other tags.
 
 ## License
 
