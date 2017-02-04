@@ -247,8 +247,7 @@ func (s *Server) WithRunPath(runPath string) *Server {
 func (s *Server) WithDefaults() *Server {
 	return s.WithConnLimit(32).
 		WithWatchDaemon().
-		WithUDPRelay().
-		WithVerbose()
+		WithUDPRelay()
 }
 
 // ResetOptions sets all the server options to default.
