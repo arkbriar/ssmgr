@@ -1,0 +1,15 @@
+[Unit]
+Description=SS-MGR Slave Service
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/default/ssmgr.slave
+User=root
+LimitNOFILE=32768
+Restart=always
+RestartSec=3
+ExecStart=/usr/local/ssmgr/bin/slave -c $CONFFILE $DAEMON_ARGS
+
+[Install]
+WantedBy=multi-user.target

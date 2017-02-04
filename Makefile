@@ -15,10 +15,10 @@ format:
 	goimports -w $(GO_SRC)
 
 run_master:
-	build/master -c config.json -v
+	build/master -c config.master.json -v
 
 run_slave:
-	build/slave -token SSMGRTEST -debug
+	build/slave -c config.slave.json -v
 
 docker:
 	docker build . --no-cache -t ssmgr-master
@@ -31,3 +31,7 @@ vendor: glide.lock glide.yaml
 
 frontend/node_modules:
 	cd frontend && npm install
+
+clean:
+	rm -f ssmgr.db
+	rm -rf build
