@@ -2,10 +2,10 @@ const app = require('../index').app;
 
 app
   .filter('flow1024', () => {
-    const kb = 1000;
-    const mb = 1000 * kb;
-    const gb = 1000 * mb;
-    const tb = 1000 * gb;
+    const kb = 1024;
+    const mb = 1024 * kb;
+    const gb = 1024 * mb;
+    const tb = 1024 * gb;
     return (input) => {
       if (input < kb) {
         return input + ' B';

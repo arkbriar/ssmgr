@@ -8,9 +8,11 @@
                     <md-divider></md-divider>
                     <md-list-item class="md-3-line">
                         <div class="md-list-item-text">
-                            <h4>地址：{{accountInfo.host}}:{{accountInfo.port}}</h4>
-                            <h4>密码：{{accountInfo.password}} ( {{accountInfo.method}} )</h4>
-                            <h4>到期：{{accountInfo.expired | date : 'yyyy-MM-dd HH:mm' }} ( {{accountInfo.expired | relativeTime }} )</h4>
+                            <h4 ng-repeat="server in accountInfo.servers">
+                                服务器（{{server.name}}）：{{server.host}}:{{server.port}} 密码：{{server.password}}
+                            </h4>
+                            <h4>加密方式：{{accountInfo.method}}</h4>
+                            <h4>有效期至：{{accountInfo.expired | date : 'yyyy-MM-dd HH:mm' }} ( {{accountInfo.expired | relativeTime }} )</h4>
                         </div>
                     </md-list-item>
                     <md-divider></md-divider>
@@ -24,9 +26,9 @@
                     <md-divider></md-divider>
                     <md-list-item layout="row" layout-align="center center">
                         <div flex></div>
-                        <div style="margin-top: 30px;">
-                            <qr text="qrcode" image="true"></qr>
-                        </div>
+                        <!--<div style="margin-top: 30px;">-->
+                            <!--<qr text="qrcode" image="true"></qr>-->
+                        <!--</div>-->
                         <div flex></div>
                     </md-list-item>
                 </md-list>
