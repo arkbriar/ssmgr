@@ -85,7 +85,7 @@ func main() {
 
 	CleanInvalidAllocation()
 
-	AllocateAllUsers()
+	//AllocateAllUsers()
 
 	go Monitoring()
 
