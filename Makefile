@@ -23,25 +23,41 @@ run_slave:
 # Support install command on linux with systemd.
 UNAME_S = $(shell uname -s)
 SYSTEMCTL = $(shell command -v systemctl)
+LINUX_SYSTEMD = 0
 ifeq (${UNAME_S}, "Linux")
 ifneq (${SYSTECTL}, "")
+	LINUX_SYSTEMD = 1
+endif
+endif
 
 install: install-master install-slave
 
 install-master: master
-	mkdir -p /usr/local/ssmgr/
-	mv build/master /usr/local/ssmgr/
-	mv systemd/ssmgr.master /etc/default/
-	mv systemd/ssmgr-master.service /lib/systemd/system/
+	@ if ((${LINUX_SYSTEMD})); then \
+		echo "installing binaries, env file and systemd unit" && \
+		mkdir -p /usr/local/ssmgr/ && \
+		mv build/master /usr/local/ssmgr/ && \
+		mv systemd/ssmgr.master /etc/default/ && \
+		mv systemd/ssmgr-master.service /lib/systemd/system/ \
+		; \
+		else \
+		echo "Not supported" \
+		; \
+		fi
 
 install-slave: slave
-	mkdir -p /usr/local/ssmgr/
-	mv build/slave /usr/local/ssmgr/
-	mv systemd/ssmgr.slave /etc/default/
-	mv systemd/ssmgr-slave.service /lib/systemd/system/
+	@ if ((${LINUX_SYSTEMD})); then \
+		echo "installing binaries, env file and systemd unit" && \
+		mkdir -p /usr/local/ssmgr/ && \
+		mv build/slave /usr/local/ssmgr/ && \
+		mv systemd/ssmgr.slave /etc/default/ && \
+		mv systemd/ssmgr-slave.service /lib/systemd/system/ \
+		; \
+		else \
+		echo "Not supported" \
+		; \
+		fi \
 
-endif
-endif
 
 docker:
 	docker build . --no-cache -t ssmgr-master
