@@ -29,7 +29,7 @@ func CreateUser(email string) *orm.User {
 
 	// Allocating ports is slow, do it in another thread
 	go func() {
-		for serverID, _ := range config.Slaves {
+		for serverID, _ := range slaves {
 			err := AllocateForUser(user.ID, serverID)
 			if err != nil {
 				logrus.Errorf("Failed to allocate ports for %s: %s", userID, err.Error())
@@ -102,7 +102,7 @@ func AllocateForUser(userID, serverID string) error {
 }
 
 func findOrInitAllocation(userID, serverID string) (int, string, error) {
-	serverConfig := config.Slaves[serverID]
+	serverConfig := slaves[serverID].Config
 
 	var allocation orm.Allocation
 	db.Where(&orm.Allocation{

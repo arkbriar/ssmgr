@@ -174,13 +174,13 @@ func handleAccount(ctx *iris.Context) {
 		passwords = make([]string, 0, len(allocs))
 	)
 	for _, alloc := range allocs {
-		slave := config.Slaves[alloc.ServerID]
+		slave := slaves[alloc.ServerID]
 		if slave == nil {
 			logrus.Warnf("Server '%s' does not exist", alloc.ServerID)
 			continue
 		}
 
-		hosts = append(hosts, slave.Host)
+		hosts = append(hosts, slave.Config.Host)
 		ports = append(ports, strconv.Itoa(alloc.Port))
 		passwords = append(passwords, alloc.Password)
 	}
