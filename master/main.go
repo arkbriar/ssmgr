@@ -16,6 +16,7 @@ import (
 var (
 	configPath = flag.String("c", "config.json", "Path of config file")
 	verbose    = flag.Bool("v", false, "Verbose mode")
+	webroot    = flag.String("w", "./frontend", "Path of web UI files")
 )
 
 type SlaveConfig struct {
@@ -78,7 +79,7 @@ func main() {
 
 	go Monitoring()
 
-	webServer := NewApp()
+	webServer := NewApp(*webroot)
 	listenAddr := fmt.Sprintf("%s:%d", config.Host, config.Port)
 	webServer.Listen(listenAddr)
 }

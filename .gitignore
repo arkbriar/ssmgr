@@ -29,3 +29,9 @@ _testmain.go
 /protocol/*.pb.go
 
 ssmgr.db
+
+/build
+
+node_modules/
+
+/frontend/libs/bundle.js
