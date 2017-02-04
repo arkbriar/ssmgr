@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -166,11 +165,14 @@ func handleAccount(ctx *iris.Context) {
 	db.Where("user_id = ?", request.UserID).Find(&allocs)
 	db.Raw("SELECT sum(flow) AS flow FROM flow_record WHERE user_id = ?", request.UserID).Scan(&flowSum)
 
-	var (
-		hosts     = make([]string, 0, len(allocs))
-		ports     = make([]string, 0, len(allocs))
-		passwords = make([]string, 0, len(allocs))
-	)
+	type serverInfo struct {
+		Host     string `json:"host"`
+		Port     int    `json:"port"`
+		Password string `json:"password"`
+		Name     string `json:"name"`
+	}
+	servers := make([]*serverInfo, 0, len(allocs))
+
 	for _, alloc := range allocs {
 		slave := slaves[alloc.ServerID]
 		if slave == nil {
@@ -178,23 +180,24 @@ func handleAccount(ctx *iris.Context) {
 			continue
 		}
 
-		hosts = append(hosts, slave.Config.Host)
-		ports = append(ports, strconv.Itoa(alloc.Port))
-		passwords = append(passwords, alloc.Password)
+		servers = append(servers, &serverInfo{
+			Host:     slave.Config.Host,
+			Port:     alloc.Port,
+			Password: alloc.Password,
+			Name:     slave.Config.Name,
+		})
 	}
 
 	type response struct {
-		Address     string `json:"address"`
-		Email       string `json:"email"`
-		Flow        int64  `json:"flow"`
-		CurrentFlow int64  `json:"currentFlow"`
-		Time        int64  `json:"time"`
-		Expired     int64  `json:"expired"`
-		Disabled    bool   `json:"isDisabled"`
-		Host        string `json:"host"`
-		Port        string `json:"port"`
-		Password    string `json:"password"`
-		Method      string `json:"method"`
+		Address     string        `json:"address"`
+		Email       string        `json:"email"`
+		Flow        int64         `json:"flow"`
+		CurrentFlow int64         `json:"currentFlow"`
+		Time        int64         `json:"time"`
+		Expired     int64         `json:"expired"`
+		Disabled    bool          `json:"isDisabled"`
+		Servers     []*serverInfo `json:"servers"`
+		Method      string        `json:"method"`
 	}
 	ctx.JSON(iris.StatusOK, &response{
 		Address:     request.UserID,
@@ -204,9 +207,7 @@ func handleAccount(ctx *iris.Context) {
 		Time:        user.Time * 1000, // convert to milliseconds
 		Expired:     user.Expired * 1000,
 		Disabled:    user.Disabled,
-		Host:        strings.Join(hosts, ", "),
-		Port:        strings.Join(ports, ", "),
-		Password:    strings.Join(passwords, ", "),
+		Servers:     servers,
 		Method:      "aes-256-cfb",
 	})
 }
@@ -251,6 +252,7 @@ type systemConfig struct {
 	}
 }
 
+// TODO: Currently front-end does not support config for groups
 func handleConfig(ctx *iris.Context) {
 	if admin, err := ctx.Session().GetBoolean("is_admin"); err != nil || !admin {
 		ctx.SetStatusCode(iris.StatusUnauthorized)
@@ -259,8 +261,8 @@ func handleConfig(ctx *iris.Context) {
 	}
 
 	var ret systemConfig
-	ret.Shadowsocks.Flow = config.Limit.Flow
-	ret.Shadowsocks.Time = config.Limit.Time
+	ret.Shadowsocks.Flow = defaultGroup.Config.Limit.Flow
+	ret.Shadowsocks.Time = defaultGroup.Config.Limit.Time
 	ctx.JSON(iris.StatusOK, &ret)
 }
 
@@ -276,8 +278,8 @@ func handleConfigPut(ctx *iris.Context) {
 		panic(err.Error())
 	}
 
-	config.Limit.Flow = req.Shadowsocks.Flow
-	config.Limit.Time = req.Shadowsocks.Time
+	defaultGroup.Config.Limit.Flow = req.Shadowsocks.Flow
+	defaultGroup.Config.Limit.Time = req.Shadowsocks.Time
 
 	// Save into config file
 	go func() {

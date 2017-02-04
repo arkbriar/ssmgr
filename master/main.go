@@ -21,24 +21,32 @@ var (
 
 type SlaveConfig struct {
 	ID      string `json:"id"`
+	Name    string `json:"name"`
 	Host    string `json:"host"`
 	Port    int    `json:"port"`
 	Token   string `json:"token"`
-	Name    string `json:"name"`
 	PortMax int    `json:"portMax"`
 	PortMin int    `json:"portMin"`
 }
 
-type Config struct {
-	Host     string `json:"host"`
-	Port     int    `json:"port"`
-	Password string `json:"password"`
+type GroupConfig struct {
+	ID       string   `json:"id"`
+	Name     string   `json:"name"`
+	SlaveIDs []string `json:"slaves"`
 	Limit    struct {
-		Flow int64 `json:"flow"`
-		Time int64 `json:"time"`
+		Flow int64 `json:"flow"`  // MB
+		Time int64 `json:"time"`  // hours
 	} `json:"limit"`
-	Slaves []*SlaveConfig `json:"slaves"`
-	Email  struct {
+}
+
+type Config struct {
+	Host     string         `json:"host"`
+	Port     int            `json:"port"`
+	Password string         `json:"password"`
+	Interval int            `json:"interval"`
+	Slaves   []*SlaveConfig `json:"slaves"`
+	Groups   []*GroupConfig `json:"groups"`
+	Email    struct {
 		Host      string `json:"host"`
 		Port      int    `json:"port"`
 		Username  string `json:"username"`
@@ -50,7 +58,6 @@ type Config struct {
 		Dialect string `json:"dialect"`
 		Args    string `json:"args"`
 	} `json:"database"`
-	Interval int `json:"interval"`
 }
 
 var db *gorm.DB
@@ -72,6 +79,8 @@ func main() {
 	db = orm.New(config.Database.Dialect, config.Database.Args)
 
 	InitSlaves()
+
+	InitGroups()
 
 	CleanInvalidAllocation()
 

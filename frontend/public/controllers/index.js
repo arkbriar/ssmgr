@@ -50,7 +50,7 @@ app
   ])
   .controller('IndexController', ['$scope', '$http', '$state', '$timeout',
     ($scope, $http, $state, $timeout) => {
-      $scope.setTitle('Free Shadowsocks');
+      $scope.setTitle('Shadowsocks Manager');
       const menu = () => {
         $scope.setMenu([{
           icon: 'settings',

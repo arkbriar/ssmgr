@@ -14,14 +14,16 @@ import (
 )
 
 func CreateUser(email string) *orm.User {
+	now := time.Now()
 	userID := hex.EncodeToString(uuid.NewV4().Bytes())
 	user := orm.User{
 		ID:        userID,
 		Email:     email,
-		QuotaFlow: config.Limit.Flow * 1024 * 1024,
-		Time:      time.Now().Unix(),
-		Expired:   time.Now().Add(time.Duration(config.Limit.Time) * time.Hour).Unix(),
+		QuotaFlow: defaultGroup.Config.Limit.Flow * 1024 * 1024,
+		Time:      now.Unix(),
+		Expired:   now.Add(time.Duration(defaultGroup.Config.Limit.Time) * time.Hour).Unix(),
 		Disabled:  false,
+		Group:     "default",
 	}
 	db.Save(&user)
 
@@ -38,6 +40,26 @@ func CreateUser(email string) *orm.User {
 	}()
 
 	return &user
+}
+
+func ChangeUserGroup(userID, groupID string) error {
+	var user orm.User
+	db.First(&user)
+	if user.ID == "" {
+		return fmt.Errorf("User not found: %s", userID)
+	}
+	group := groups[groupID]
+	if group == nil {
+		return fmt.Errorf("Group not found: %s", groupID)
+	}
+	user.Group = groupID
+	user.Expired = time.Unix(user.Time, 0).Add(time.Duration(defaultGroup.Config.Limit.Time) * time.Hour).Unix()
+	user.QuotaFlow = group.Config.Limit.Flow * 1024 * 1024
+
+	// Let the daemon routine check whether to remove user (set disable = 1)
+
+	err := db.Debug().Save(&user).Error
+	return err
 }
 
 func RemoveUser(userIDs ...string) {
