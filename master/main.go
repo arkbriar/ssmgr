@@ -18,6 +18,16 @@ var (
 	verbose    = flag.Bool("v", false, "Verbose mode")
 )
 
+type SlaveConfig struct {
+	ID      string `json:"id"`
+	Host    string `json:"host"`
+	Port    int    `json:"port"`
+	Token   string `json:"token"`
+	Name    string `json:"name"`
+	PortMax int    `json:"portMax"`
+	PortMin int    `json:"portMin"`
+}
+
 type Config struct {
 	Host     string `json:"host"`
 	Port     int    `json:"port"`
@@ -26,15 +36,8 @@ type Config struct {
 		Flow int64 `json:"flow"`
 		Time int64 `json:"time"`
 	} `json:"limit"`
-	Slaves map[string]*struct {
-		Host    string `json:"host"`
-		Port    int    `json:"port"`
-		Token   string `json:"token"`
-		Name    string `json:"name"`
-		PortMax int    `json:"portMax"`
-		PortMin int    `json:"portMin"`
-	} `json:"slaves"`
-	Email struct {
+	Slaves []*SlaveConfig `json:"slaves"`
+	Email  struct {
 		Host      string `json:"host"`
 		Port      int    `json:"port"`
 		Username  string `json:"username"`

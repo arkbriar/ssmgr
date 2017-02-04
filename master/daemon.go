@@ -17,6 +17,8 @@ import (
 type Slave struct {
 	stub rpc.SSMgrSlaveClient
 	ctx  context.Context
+
+	Config *SlaveConfig
 }
 
 var slaves map[string]*Slave
@@ -24,7 +26,7 @@ var slaves map[string]*Slave
 func InitSlaves() {
 	slaves = make(map[string]*Slave)
 
-	for id, info := range config.Slaves {
+	for _, info := range config.Slaves {
 		address := fmt.Sprintf("%s:%d", info.Host, info.Port)
 		md := metadata.Pairs("token", info.Token)
 		ctx := metadata.NewContext(context.Background(), md)
@@ -36,9 +38,10 @@ func InitSlaves() {
 
 		client := rpc.NewSSMgrSlaveClient(conn)
 
-		slaves[id] = &Slave{
-			stub: client,
-			ctx:  ctx,
+		slaves[info.ID] = &Slave{
+			stub:   client,
+			ctx:    ctx,
+			Config: info,
 		}
 	}
 }

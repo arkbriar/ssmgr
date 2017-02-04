@@ -42,6 +42,8 @@ func NewApp() *iris.Framework {
 	app.Post("/password", handlePassword)
 	app.Put("/config", handleConfigPut)
 	app.Post("/logout", handleLogout)
+	app.Post("/user", handleUser)
+	app.Post("/flow", handleFlow)
 
 	app.Get("/*path", func(ctx *iris.Context) {
 		path := ctx.Param("path")
@@ -148,7 +150,10 @@ func handleAccount(ctx *iris.Context) {
 		return
 	}
 
-	if ctx.Session().GetString("user_id") != request.UserID {
+	isLogin := ctx.Session().GetString("user_id") != request.UserID
+	isAdmin, _ := ctx.Session().GetBoolean("is_admin")
+
+	if !isLogin && !isAdmin {
 		ctx.SetStatusCode(iris.StatusForbidden)
 		ctx.WriteString("please login first")
 		return
@@ -169,13 +174,13 @@ func handleAccount(ctx *iris.Context) {
 		passwords = make([]string, 0, len(allocs))
 	)
 	for _, alloc := range allocs {
-		slave := config.Slaves[alloc.ServerID]
+		slave := slaves[alloc.ServerID]
 		if slave == nil {
 			logrus.Warnf("Server '%s' does not exist", alloc.ServerID)
 			continue
 		}
 
-		hosts = append(hosts, slave.Host)
+		hosts = append(hosts, slave.Config.Host)
 		ports = append(ports, strconv.Itoa(alloc.Port))
 		passwords = append(passwords, alloc.Password)
 	}
@@ -198,7 +203,7 @@ func handleAccount(ctx *iris.Context) {
 		Email:       user.Email,
 		Flow:        user.QuotaFlow,
 		CurrentFlow: flowSum[0].Flow,
-		Time:        user.Time * 1000,
+		Time:        user.Time * 1000,  // convert to milliseconds
 		Expired:     user.Expired * 1000,
 		Disabled:    user.Disabled,
 		Host:        strings.Join(hosts, ", "),
@@ -289,4 +294,63 @@ func handleConfigPut(ctx *iris.Context) {
 func handleLogout(ctx *iris.Context) {
 	ctx.Session().Clear()
 	ctx.WriteString("success")
+}
+
+func handleUser(ctx *iris.Context) {
+	if admin, err := ctx.Session().GetBoolean("is_admin"); err != nil || !admin {
+		ctx.SetStatusCode(iris.StatusUnauthorized)
+		ctx.WriteString("please login first")
+		return
+	}
+
+	const SQL = `SELECT user_id, email, quota_flow, sum(flow) AS current_flow, time, expired, disabled
+FROM users JOIN flow_record ON users.id == flow_record.user_id
+GROUP BY user_id`
+	rows, err := db.Raw(SQL).Rows()
+	if err != nil {
+		panic(err)
+	}
+	defer rows.Close()
+
+	type response struct {
+		UserID      string `json:"address"`
+		Email       string `json:"email"`
+		Flow        int64  `json:"flow"`
+		CurrentFlow int64  `json:"currentFlow"`
+		Time        int64  `json:"time"`
+		Expired     int64  `json:"expired"`
+		Disabled    bool   `json:"isDisabled"`
+	}
+
+	users := make([]*response, 0)
+
+	for rows.Next() {
+		var u response
+		rows.Scan(&u.UserID, &u.Email, &u.Flow, &u.CurrentFlow, &u.Time, &u.Expired, &u.Disabled)
+
+		// convert to milliseconds
+		u.Time *= 1000
+		u.Expired *= 1000
+
+		users = append(users, &u)
+	}
+
+	ctx.JSON(iris.StatusOK, users)
+}
+
+func handleFlow(ctx *iris.Context) {
+	if admin, err := ctx.Session().GetBoolean("is_admin"); err != nil || !admin {
+		ctx.SetStatusCode(iris.StatusUnauthorized)
+		ctx.WriteString("please login first")
+		return
+	}
+
+	const SQL = `SELECT sum(flow) AS total_flow FROM flow_record`
+
+	var result struct {
+		TotalFlow int64 `json:"flow"`
+	}
+	db.Raw(SQL).Scan(&result)
+
+	ctx.JSON(iris.StatusOK, &result)
 }
