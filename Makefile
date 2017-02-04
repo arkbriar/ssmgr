@@ -5,7 +5,7 @@ all: frontend server slave
 frontend: frontend/node_modules
 	cd frontend && webpack -p
 
-server: frontend vendor
+master: frontend vendor
 	go build -o build/master github.com/arkbriar/ss-mgr/master
 
 slave: vendor
@@ -20,7 +20,10 @@ run_master:
 run_slave:
 	build/slave -token SSMGRTEST -debug
 
-.PHONY: all frontend server slave format
+docker:
+	docker build . --no-cache -t ssmgr-master
+
+.PHONY: all frontend server slave format docker
 
 vendor: glide.lock glide.yaml
 	glide install

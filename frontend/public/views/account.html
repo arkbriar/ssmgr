@@ -3,16 +3,17 @@
     <div flex>
         <md-card>
             <md-card-content>
-                <h3>Shadowsocks信息</h3>
+                <h3>Shadowsocks Service</h3>
                 <md-list>
                     <md-divider></md-divider>
                     <md-list-item class="md-3-line">
                         <div class="md-list-item-text">
-                            <h4 ng-repeat="server in accountInfo.servers">
-                                服务器（{{server.name}}）：{{server.host}}:{{server.port}} 密码：{{server.password}}
-                            </h4>
-                            <h4>加密方式：{{accountInfo.method}}</h4>
-                            <h4>有效期至：{{accountInfo.expired | date : 'yyyy-MM-dd HH:mm' }} ( {{accountInfo.expired | relativeTime }} )</h4>
+                            <div ng-repeat="server in accountInfo.servers" style="margin-bottom: 7px; margin-top: 7px;">
+                                <h4><span style="font-weight: bold;">{{server.name}}</span></h4>
+                                <h4>地址：{{server.host}}:{{server.port}}</h4>
+                                <h4>密码：{{server.password}} ( {{accountInfo.method}} )</h4>
+                            </div>
+                            <h4 style="margin-bottom: 10px; margin-top: 10px;">有效期至：{{accountInfo.expired | date : 'yyyy-MM-dd HH:mm' }} ( {{accountInfo.expired | relativeTime }} )</h4>
                         </div>
                     </md-list-item>
                     <md-divider></md-divider>

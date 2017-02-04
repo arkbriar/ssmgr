@@ -66,6 +66,7 @@ var config *Config
 
 func main() {
 	flag.Parse()
+
 	if *verbose {
 		logrus.SetLevel(logrus.DebugLevel)
 	}
@@ -73,17 +74,16 @@ func main() {
 	var err error
 	config, err = parseConfig(*configPath)
 	if err != nil {
-		logrus.Fatal(config)
+		logrus.Fatal(err)
 	}
 
 	db = orm.New(config.Database.Dialect, config.Database.Args)
 
 	InitSlaves()
-
 	InitGroups()
 
+	// If servers config is changed, clear removed and allocate new
 	CleanInvalidAllocation()
-
 	AllocateAllUsers()
 
 	go Monitoring()
