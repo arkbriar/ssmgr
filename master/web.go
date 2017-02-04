@@ -251,6 +251,7 @@ type systemConfig struct {
 	}
 }
 
+// TODO: Currently front-end does not support config for groups
 func handleConfig(ctx *iris.Context) {
 	if admin, err := ctx.Session().GetBoolean("is_admin"); err != nil || !admin {
 		ctx.SetStatusCode(iris.StatusUnauthorized)
@@ -259,8 +260,8 @@ func handleConfig(ctx *iris.Context) {
 	}
 
 	var ret systemConfig
-	ret.Shadowsocks.Flow = config.Limit.Flow
-	ret.Shadowsocks.Time = config.Limit.Time
+	ret.Shadowsocks.Flow = defaultGroup.Config.Limit.Flow
+	ret.Shadowsocks.Time = defaultGroup.Config.Limit.Time
 	ctx.JSON(iris.StatusOK, &ret)
 }
 
@@ -276,8 +277,8 @@ func handleConfigPut(ctx *iris.Context) {
 		panic(err.Error())
 	}
 
-	config.Limit.Flow = req.Shadowsocks.Flow
-	config.Limit.Time = req.Shadowsocks.Time
+	defaultGroup.Config.Limit.Flow = req.Shadowsocks.Flow
+	defaultGroup.Config.Limit.Time = req.Shadowsocks.Time
 
 	// Save into config file
 	go func() {

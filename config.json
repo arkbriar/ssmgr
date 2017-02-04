@@ -2,19 +2,29 @@
   "host": "localhost",
   "port": 8000,
   "password": "01020304",
-  "limit": {
-    "flow": 500,
-    "time": 180
-  },
+  "interval": 30,
   "slaves": [
     {
       "id": "local",
+      "name": "Localhost (test)",
       "host": "127.0.0.1",
       "port": 6001,
       "token": "SSMGRTEST",
-      "name": "Localhost (test)",
       "portMax": 20500,
       "portMin": 20000
+    }
+  ],
+  "groups": [
+    {
+      "id": "default",
+      "name": "Free",
+      "slaves": [
+        "local"
+      ],
+      "limit": {
+        "flow": 500,
+        "time": 180
+      }
     }
   ],
   "email": {
@@ -26,6 +36,5 @@
   "database": {
     "dialect": "sqlite3",
     "args": "ssmgr.db"
-  },
-  "interval": 30
+  }
 }
