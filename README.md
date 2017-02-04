@@ -28,6 +28,14 @@ make all
 
 ## Install
 
+**NOTE**, `install` is only supported on linux with systemd.
+
+Before install ssmgr, install shadowsocks-libev first.
+
+```
+sudo apt install shadowsocks-libev
+```
+
 To install it completely (binaries and systemd services), 
 
 ```bash

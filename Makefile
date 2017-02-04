@@ -20,6 +20,29 @@ run_master:
 run_slave:
 	build/slave -c config.slave.json -v
 
+# Support install command on linux with systemd.
+UNAME_S = $(shell uname -s)
+SYSTEMCTL = $(shell command -v systemctl)
+ifeq (${UNAME_S}, "Linux")
+ifneq (${SYSTECTL}, "")
+
+install: install-master install-slave
+
+install-master: master
+	mkdir -p /usr/local/ssmgr/
+	mv build/master /usr/local/ssmgr/
+	mv systemd/ssmgr.master /etc/default/
+	mv systemd/ssmgr-master.service /lib/systemd/system/
+
+install-slave: slave
+	mkdir -p /usr/local/ssmgr/
+	mv build/slave /usr/local/ssmgr/
+	mv systemd/ssmgr.slave /etc/default/
+	mv systemd/ssmgr-slave.service /lib/systemd/system/
+
+endif
+endif
+
 docker:
 	docker build . --no-cache -t ssmgr-master
 
