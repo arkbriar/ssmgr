@@ -22,7 +22,7 @@ const verifyCodeExpire = 300
 
 var mail mailer.Service
 
-func NewApp() *iris.Framework {
+func NewApp(webroot string) *iris.Framework {
 
 	mail = mailer.New(mailer.Config{
 		Host:      config.Email.Host,
@@ -48,12 +48,10 @@ func NewApp() *iris.Framework {
 	app.Get("/*path", func(ctx *iris.Context) {
 		path := ctx.Param("path")
 		switch {
-		case strings.HasPrefix(path, "/libs"):
-			ctx.ServeFile("./public"+path, true)
-		case strings.HasPrefix(path, "/public"):
-			ctx.ServeFile("."+path, true)
+		case strings.HasPrefix(path, "/libs"), strings.HasPrefix(path, "/public"):
+			ctx.ServeFile(webroot+path, true)
 		default:
-			ctx.ServeFile("./views/index.html", true)
+			ctx.ServeFile(webroot+"/views/index.html", true)
 		}
 	})
 
@@ -150,7 +148,7 @@ func handleAccount(ctx *iris.Context) {
 		return
 	}
 
-	isLogin := ctx.Session().GetString("user_id") != request.UserID
+	isLogin := ctx.Session().GetString("user_id") == request.UserID
 	isAdmin, _ := ctx.Session().GetBoolean("is_admin")
 
 	if !isLogin && !isAdmin {
@@ -203,7 +201,7 @@ func handleAccount(ctx *iris.Context) {
 		Email:       user.Email,
 		Flow:        user.QuotaFlow,
 		CurrentFlow: flowSum[0].Flow,
-		Time:        user.Time * 1000,  // convert to milliseconds
+		Time:        user.Time * 1000, // convert to milliseconds
 		Expired:     user.Expired * 1000,
 		Disabled:    user.Disabled,
 		Host:        strings.Join(hosts, ", "),
