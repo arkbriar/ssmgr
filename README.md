@@ -73,7 +73,7 @@ Master and slaves are organized as:
              +---------------+
 ```
 
-We define the protocol as rpc methods in [a .proto file](manager/protocol/master_salve.proto).
+We define the protocol as rpc methods in [a .proto file](protocol/master_salve.proto).
 
 ## Known Issues
 
