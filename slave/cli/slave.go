@@ -78,10 +78,19 @@ func run(ctx context.Context) error {
 		return errors.New("Early cancel.")
 	default:
 	}
+
 	mgr := ss.NewManager(conf.MgrPort)
 	if err := mgr.Listen(context.Background()); err != nil {
 		return fmt.Errorf("Can not listen udp address 127.0.0.1:%d, %s", conf.MgrPort, err)
 	}
+
+	token := conf.Token
+	s := grpc.NewServer(grpc.UnaryInterceptor(slave.UnaryAuthInterceptor(token)),
+		grpc.StreamInterceptor(slave.StreamAuthInterceptor(token)))
+	proto.RegisterSSMgrSlaveServer(s, slave.NewSSMgrSlaveServer(token, mgr))
+
+	// listen and do the restoration
+
 	conn, err := net.Listen("tcp", fmt.Sprintf(":%d", conf.Port))
 	if err != nil {
 		return err
@@ -90,20 +99,22 @@ func run(ctx context.Context) error {
 	if err != nil {
 		log.Warn(err)
 	}
-	token := conf.Token
-	s := grpc.NewServer(grpc.UnaryInterceptor(slave.UnaryAuthInterceptor(token)),
-		grpc.StreamInterceptor(slave.StreamAuthInterceptor(token)))
-	proto.RegisterSSMgrSlaveServer(s, slave.NewSSMgrSlaveServer(token, mgr))
+
+	// start rpc server
+
 	errc := make(chan error, 1)
 	go func() {
 		log.Infof("Starting server on 0.0.0.0:%d", conf.Port)
+
 		errc <- s.Serve(conn)
 	}()
 	select {
 	case <-ctx.Done():
 		s.GracefulStop()
 		mgr.CleanUp()
+
 		log.Info("Graceful shutdown.")
+
 	case err := <-errc:
 		return err
 	}
@@ -112,12 +123,14 @@ func run(ctx context.Context) error {
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
+
 	go func() {
 		ch := make(chan os.Signal, 1)
 		signal.Notify(ch, os.Interrupt, os.Kill)
 		<-ch
 		cancel()
 	}()
+
 	if err := run(ctx); err != nil {
 		log.Error(err)
 		os.Exit(-1)

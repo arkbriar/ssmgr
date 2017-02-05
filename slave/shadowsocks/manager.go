@@ -67,13 +67,16 @@ func (mgr *manager) handleStat(data []byte) {
 		log.Warnf("Unrecognized command %s, dropped", cmd)
 		return
 	}
-	body := bytes.TrimSpace(data[5:])
+
 	var stat map[string]int64
+
+	body := bytes.TrimSpace(data[5:])
 	err := json.Unmarshal(body, &stat)
 	if err != nil {
 		log.Warnln("Unmarshal error:", err)
 		return
 	}
+
 	port, traffic := -1, int64(-1)
 	for portS, trafficS := range stat {
 		port, _ = strconv.Atoi(portS)
@@ -84,9 +87,11 @@ func (mgr *manager) handleStat(data []byte) {
 		log.Warnf("Invalid stat!")
 		return
 	}
-	// Update statistic
+
+	// update statistic
 	mgr.serverMu.RLock()
 	defer mgr.serverMu.RUnlock()
+
 	s, ok := mgr.servers[int32(port)]
 	if !ok {
 		log.Warnf("Server on port %d not found!", port)
@@ -105,17 +110,21 @@ func (mgr *manager) Listen(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
 	select {
 	case <-ctx.Done():
 		return errors.New("canceled")
 	default:
 	}
+
 	conn, err := net.ListenUDP("udp", addr)
 	if err != nil {
 		return err
 	}
+
 	go func() {
 		defer conn.Close()
+
 		buf := make([]byte, 1024)
 		for {
 			select {
@@ -123,23 +132,28 @@ func (mgr *manager) Listen(ctx context.Context) error {
 				return
 			default:
 				n, from, err := conn.ReadFromUDP(buf)
-				data := bytes.Trim(buf[:n-1], "\x00\r\n")
-				log.Debugf("Receving packet from %s: %s", from, data)
 				if err != nil {
 					log.Warnln(err)
 					continue
 				}
+				data := bytes.Trim(buf[:n-1], "\x00\r\n")
+
+				log.Debugf("Receving packet from %s: %s", from, data)
+
 				mgr.handleStat(data)
 			}
 		}
 	}()
+
 	log.Debugf("Listening on 127.0.0.1:%d", port)
+
 	return nil
 }
 
 func (mgr *manager) addAlive(s *Server) error {
 	mgr.serverMu.Lock()
 	defer mgr.serverMu.Unlock()
+
 	if _, ok := mgr.servers[s.Port]; ok {
 		return ErrServerExists
 	}
@@ -159,12 +173,15 @@ func (mgr *manager) Add(s *Server) error {
 	if !s.valid() {
 		return ErrInvalidServer
 	}
+
 	s = mgr.prepareServer(s)
 	if err := os.MkdirAll(s.runPath, 0744); err != nil {
 		return err
 	}
+
 	mgr.serverMu.Lock()
 	defer mgr.serverMu.Unlock()
+
 	if _, ok := mgr.servers[s.Port]; ok {
 		return ErrServerExists
 	}
@@ -172,29 +189,36 @@ func (mgr *manager) Add(s *Server) error {
 		return err
 	}
 	mgr.servers[s.Port] = s
+
 	log.Infof("Add server(%s)", s)
+
 	return nil
 }
 
 func (mgr *manager) Remove(port int32) error {
 	mgr.serverMu.Lock()
 	defer mgr.serverMu.Unlock()
+
 	s, ok := mgr.servers[port]
 	if !ok {
 		return ErrServerNotFound
 	}
+
 	delete(mgr.servers, port)
 	if err := s.Stop(); err != nil {
 		log.Warn(err)
 	}
 	os.RemoveAll(s.runPath)
+
 	log.Info("Remove server(%s)", s)
+
 	return nil
 }
 
 func (mgr *manager) ListServers() map[int32]*Server {
 	mgr.serverMu.RLock()
 	defer mgr.serverMu.RUnlock()
+
 	currentServers := make(map[int32]*Server)
 	for port, s := range mgr.servers {
 		currentServers[port] = s.clone()
@@ -205,6 +229,7 @@ func (mgr *manager) ListServers() map[int32]*Server {
 func (mgr *manager) GetServer(port int32) (*Server, error) {
 	mgr.serverMu.RLock()
 	defer mgr.serverMu.RUnlock()
+
 	s, ok := mgr.servers[port]
 	if !ok {
 		return nil, ErrServerNotFound
@@ -242,22 +267,28 @@ func (mgr *manager) restore(s *Server, serverPath string) error {
 	if !validPort(s.Port) {
 		log.Warn("Invalid port.")
 	}
+
 	s = mgr.prepareServer(s)
 	err := s.Restore(serverPath)
 	if err != nil {
 		return err
 	}
+
 	if s.Alive() {
 		if err := mgr.addAlive(s); err != nil {
 			return err
 		}
 		return nil
 	}
+
+	// when server process is dead
 	err = mgr.Add(s)
 	if err != nil {
 		return err
 	}
+
 	log.Info("Server(%s) restored.", s)
+
 	return nil
 }
 
@@ -269,6 +300,7 @@ func (mgr *manager) Restore() error {
 	if !isDir(mgr.path) {
 		return errors.New(mgr.path + " is not a directory")
 	}
+
 	names, err := readDirNames(mgr.path)
 	if err != nil {
 		return err
@@ -278,6 +310,7 @@ func (mgr *manager) Restore() error {
 		if isDir(serverPath) {
 			if port, ok := getPort(name); ok {
 				log.Infof("Restoring server(%d) ...", port)
+
 				err := mgr.restore(&Server{Port: port}, serverPath)
 				if err != nil {
 					log.Warnf("Can not restore server(%d), %s, remove it.", port, err)
@@ -304,5 +337,6 @@ func (mgr *manager) CleanUp() {
 	for p := range mgr.ListServers() {
 		mgr.Remove(p)
 	}
+
 	log.Infof("Clean up all managed servers.")
 }

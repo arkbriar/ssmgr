@@ -32,6 +32,8 @@ func init() {
 		log.Warnf("Can not find ss-server in $PATH. Install it.")
 		os.Exit(-1)
 	}
+
+	// initialize ipt and warn unsupported
 	if runtime.GOOS != "linux" {
 		log.Warnf("Connection limit and auto ban is not supported on non-linux system.")
 	} else {
@@ -283,6 +285,7 @@ func (s *Server) Command() string {
 func (s *Server) clone() *Server {
 	s.rtMu.RLock()
 	defer s.rtMu.RUnlock()
+
 	c := *s
 	c.rtMu = sync.RWMutex{}
 	return &c
@@ -307,6 +310,7 @@ func (s *Server) startWatchDaemon() error {
 	if s.watchDaemon.cancel != nil {
 		return errWatchDaemonAlreadyStarted
 	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	s.watchDaemon.cancel = cancel
 	go func(ctx context.Context) {
@@ -317,6 +321,7 @@ func (s *Server) startWatchDaemon() error {
 			case <-time.After(5 * time.Second):
 				if !s.Alive() {
 					log.Warnf("Server(%s) is detected dead.", s)
+
 					if err := s.revive(); err != nil {
 						if err != errServerAlive {
 							log.Warnf("Can not restart server(%s), %s", s, err)
@@ -338,6 +343,7 @@ func (s *Server) stopWatchDaemon() error {
 	if s.watchDaemon.cancel == nil {
 		return errWatchDaemonIsNotStarted
 	}
+
 	s.watchDaemon.cancel()
 	s.watchDaemon.cancel = nil
 	return nil
@@ -352,12 +358,16 @@ func (s *Server) connLimitIPTablesRule() []string {
 	return nil
 }
 
+var (
+	errIPTablesNotSupported = errors.New("iptables not supported")
+)
+
 func (s *Server) createConnLimit() error {
 	if ipt == nil {
-		return nil
+		return errIPTablesNotSupported
 	}
-	rule := s.connLimitIPTablesRule()
-	err := ipt.AppendUnique("filter", "INPUT", rule...)
+
+	err := ipt.AppendUnique("filter", "INPUT", s.connLimitIPTablesRule()...)
 	if err != nil {
 		return err
 	}
@@ -366,10 +376,10 @@ func (s *Server) createConnLimit() error {
 
 func (s *Server) deleteConnLimit() error {
 	if ipt == nil {
-		return nil
+		return errIPTablesNotSupported
 	}
-	rule := s.connLimitIPTablesRule()
-	err := ipt.Delete("filter", "INPUT", rule...)
+
+	err := ipt.Delete("filter", "INPUT", s.connLimitIPTablesRule()...)
 	if err != nil {
 		return err
 	}
@@ -377,6 +387,10 @@ func (s *Server) deleteConnLimit() error {
 }
 
 func (s *Server) checkConnLimit() (bool, error) {
+	if ipt == nil {
+		return false, errIPTablesNotSupported
+	}
+
 	return ipt.Exists("filter", "INPUT", s.connLimitIPTablesRule()...)
 }
 
@@ -428,7 +442,9 @@ var (
 
 func (s *Server) exec() error {
 	cmd := s.command()
-	if len(s.runPath) != 0 {
+
+	// redirect the stdout and stderr to ss_server.log when pidfile is not given
+	if len(s.runPath) != 0 && len(s.opts.PidFile) == 0 {
 		logw, err := os.Create(path.Join(s.runPath, "ss_server.log"))
 		if err != nil {
 			log.Warnf("Can not open log file, %s", err)
@@ -436,6 +452,8 @@ func (s *Server) exec() error {
 			cmd.Stdout, cmd.Stderr = logw, logw
 		}
 	}
+
+	// ss-server will fork and exit when pidfile is specified, so run it
 	if len(s.opts.PidFile) != 0 {
 		if err := cmd.Run(); err != nil {
 			return err
@@ -461,18 +479,21 @@ func (s *Server) exec() error {
 
 func (s *Server) afterStart() []error {
 	errs := make([]error, 0)
+
 	if s.watchDaemon.enable {
 		err := s.startWatchDaemon()
 		if err != nil {
 			errs = append(errs, err)
 		}
 	}
+
 	if s.connLimit > 0 {
 		err := s.createConnLimit()
-		if err != nil {
+		if err != nil && err != errIPTablesNotSupported {
 			errs = append(errs, err)
 		}
 	}
+
 	if len(errs) == 0 {
 		return nil
 	}
@@ -480,15 +501,18 @@ func (s *Server) afterStart() []error {
 }
 
 func (s *Server) start() error {
-	if s.runtime != nil {
-		return errServerAlreadyStarted
-	}
 	if !s.valid() {
 		return errors.New("invalid server configuration")
 	}
+
+	if s.runtime != nil {
+		return errServerAlreadyStarted
+	}
+
 	if len(s.runPath) == 0 {
 		return errors.New("start server without run path is not supported")
 	}
+
 	s.Extra = &serverExtra{
 		StartTime: time.Now(),
 	}
@@ -496,6 +520,8 @@ func (s *Server) start() error {
 	if err != nil {
 		return err
 	}
+
+	// execute and run actions after start
 	err = s.exec()
 	if err == nil {
 		errs := s.afterStart()
@@ -512,6 +538,7 @@ func (s *Server) start() error {
 func (s *Server) Start() error {
 	s.rtMu.Lock()
 	defer s.rtMu.Unlock()
+
 	return s.start()
 }
 
@@ -519,9 +546,9 @@ func (s *Server) kill() error {
 	if s.runtime == nil {
 		return errServerNotStarted
 	}
+
 	proc := s.runtime.proc
-	s.runtime = nil
-	s.Extra = nil
+	s.runtime, s.Extra = nil, nil
 	proc.Kill()
 	proc.Wait()
 	return nil
@@ -531,9 +558,9 @@ func (s *Server) forceKill() {
 	if s.runtime == nil {
 		return
 	}
+
 	proc := s.runtime.proc
-	s.runtime = nil
-	s.Extra = nil
+	s.runtime, s.Extra = nil, nil
 	proc.Kill()
 	proc.Wait()
 }
@@ -541,10 +568,11 @@ func (s *Server) forceKill() {
 func (s *Server) beforeStop() {
 	if s.connLimit > 0 {
 		err := s.deleteConnLimit()
-		if err != nil {
+		if err != nil && err != errIPTablesNotSupported {
 			log.Warn(err)
 		}
 	}
+
 	if s.watchDaemon.enable {
 		err := s.stopWatchDaemon()
 		if err != nil {
@@ -562,12 +590,15 @@ func (s *Server) stop() error {
 func (s *Server) Stop() error {
 	s.rtMu.Lock()
 	defer s.rtMu.Unlock()
+
 	return s.stop()
 }
 
-func (s *Server) restart() error {
+// Restart restarts the server.
+func (s *Server) Restart() error {
 	s.rtMu.Lock()
 	defer s.rtMu.Unlock()
+
 	s.stop()
 	return s.start()
 }
@@ -576,13 +607,15 @@ func (s *Server) restart() error {
 func (s *Server) Alive() bool {
 	s.rtMu.RLock()
 	defer s.rtMu.RUnlock()
+
 	return s.runtime != nil && s.runtime.alive()
 }
 
-// revive starts the process when it is dead.
+// revive starts the dead process.
 func (s *Server) revive() error {
 	s.rtMu.Lock()
 	defer s.rtMu.Unlock()
+
 	if s.runtime == nil || !s.runtime.alive() {
 		s.runtime = nil
 		if err := s.start(); err != nil {
@@ -597,10 +630,12 @@ func (s *Server) revive() error {
 func (s *Server) restoreRuntime(runPath string) error {
 	s.rtMu.Lock()
 	defer s.rtMu.Unlock()
+
 	proc, err := findProcFromPidFile(path.Join(runPath, "ss_server.pid"))
 	if err != nil {
 		return err
 	}
+
 	s.runtime = &serverRuntime{
 		proc: proc,
 	}
