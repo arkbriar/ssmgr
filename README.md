@@ -2,6 +2,8 @@
 
 Shadowsocks manager of multiple servers, providing simple and easy way for users to acquire shadowsocks services over regions of servers.
 
+**NOTIFICATION** *After [commit ca33594](https://github.com/arkbriar/ssmgr/pull/23/commits/ca335940389f4a9ec937386a898880d52b529f70), slave's managed dir changes to $HOME/.ssmgr, refer to [#23](https://github.com/arkbriar/ssmgr/pull/23) if you want to do a migration.*
+
 ## Compile
 
 First of all, install the dependent tools.
@@ -62,14 +64,14 @@ Master and slaves are organized as:
 
 ```
 +--------------+    +--------------+       +-------+
-| ss-mgr slave |    | ss-mgr slave |  ...  |       |
+| ssmgr slave  |    | ssmgr slave  |  ...  |       |
 +--------------+    +--------------+       +-------+
        |                    |                  |
        +------------+-------+-------  ...  ----+
                     |
                     |
              +---------------+
-             | ss-mgr master |
+             | ssmgr master  |
              +---------------+
 ```
 
