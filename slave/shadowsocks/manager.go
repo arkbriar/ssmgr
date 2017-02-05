@@ -55,7 +55,7 @@ type manager struct {
 func NewManager(udpPort int) Manager {
 	mgr := &manager{
 		servers: make(map[int32]*Server),
-		path:    path.Join(os.Getenv("HOME"), ".shadowsocks_manager"),
+		path:    path.Join(os.Getenv("HOME"), ".ssmgr"),
 		udpPort: udpPort,
 	}
 	return mgr
