@@ -51,7 +51,8 @@ type manager struct {
 	udpPort  int
 }
 
-// NewManager returns a new manager.
+// NewManager returns a new manager, udpPort is origin shadowsocks manager api port, receiving
+// 'stat' command from ss-servers
 func NewManager(udpPort int) Manager {
 	mgr := &manager{
 		servers: make(map[int32]*Server),
@@ -274,6 +275,7 @@ func (mgr *manager) restore(s *Server, serverPath string) error {
 		return err
 	}
 
+	// when server process is alive
 	if s.Alive() {
 		if err := mgr.addAlive(s); err != nil {
 			return err
@@ -292,7 +294,7 @@ func (mgr *manager) restore(s *Server, serverPath string) error {
 	return nil
 }
 
-// Restore starts all ss-servers that leaves their dirs in manager.path
+// Restore starts all ss-servers that leaves their dirs in managed path.
 func (mgr *manager) Restore() error {
 	if _, err := os.Stat(mgr.path); err != nil {
 		return errors.New(mgr.path + " doesn't not exsits")
@@ -301,6 +303,7 @@ func (mgr *manager) Restore() error {
 		return errors.New(mgr.path + " is not a directory")
 	}
 
+	// traverse all dirs in managed path and restore the servers.
 	names, err := readDirNames(mgr.path)
 	if err != nil {
 		return err
