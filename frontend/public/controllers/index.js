@@ -150,20 +150,22 @@ app
   ])
   .controller('AccountController', ['$scope', '$http', '$state', '$stateParams', '$interval',
     ($scope, $http, $state, $stateParams, $interval) => {
-      $scope.qrcode = '';
       const b64EncodeUnicode = str => {
         return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (match, p1) => {
           return String.fromCharCode('0x' + p1);
         }));
       };
       $scope.getAccount = () => {
-        $scope.qrcode || $scope.loading(true);
+        $scope.loading(true);
         $http.post('/account', {
           address: $stateParams.id
         }).then(success => {
           $scope.loading(false);
           $scope.accountInfo = success.data;
-          $scope.qrcode = 'ss://' + b64EncodeUnicode($scope.accountInfo.method + ':' + $scope.accountInfo.password + '@' + $scope.accountInfo.host + ':' + $scope.accountInfo.port);
+          for (let i = 0; i < $scope.accountInfo.servers.length; i++) {
+            let server = $scope.accountInfo.servers[i];
+            server.qrcode = 'ss://' + b64EncodeUnicode($scope.accountInfo.method + ':' + server.password + '@' + server.host + ':' + server.port);
+          }
         }, error => {
           $scope.loading(false);
           $state.go('index');

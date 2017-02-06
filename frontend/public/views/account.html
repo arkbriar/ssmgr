@@ -25,13 +25,16 @@
                         </div>
                     </md-list-item>
                     <md-divider></md-divider>
-                    <md-list-item layout="row" layout-align="center center">
-                        <div flex></div>
-                        <!--<div style="margin-top: 30px;">-->
-                            <!--<qr text="qrcode" image="true"></qr>-->
-                        <!--</div>-->
-                        <div flex></div>
-                    </md-list-item>
+                    <div ng-repeat="server in accountInfo.servers">
+                        <md-list-item layout="row" layout-align="center center">
+                            <div flex></div>
+                                <div style="margin-top: 30px;">
+                                    <qr text="server.qrcode" image="true"></qr>
+                                </div>
+                            <div flex></div>
+                        </md-list-item>
+                        <div style="text-align: center; padding-top: 3px;">{{server.name}}</div>
+                    </div>
                 </md-list>
             </md-card-content>
         </md-card>
