@@ -34,9 +34,9 @@ install: install-master install-slave
 
 install-master: master
 	@ if ((${LINUX_SYSTEMD})); then \
-		echo "installing binaries, env file and systemd unit" && \
+		echo "installing binaries, env file and systemd unit of ssmgr master" && \
 		mkdir -p /usr/local/ssmgr/bin && \
-		mv build/master /usr/local/ssmgr/bin && \
+		mv build/master /usr/local/ssmgr/bin/ && \
 		mv systemd/ssmgr.master /etc/default/ && \
 		mv systemd/ssmgr-master.service /lib/systemd/system/ \
 		; \
@@ -47,9 +47,9 @@ install-master: master
 
 install-slave: slave
 	@ if ((${LINUX_SYSTEMD})); then \
-		echo "installing binaries, env file and systemd unit" && \
-		mkdir -p /usr/local/ssmgr/ && \
-		mv build/slave /usr/local/ssmgr/bin && \
+		echo "installing binaries, env file and systemd unit of ssmgr slave" && \
+		mkdir -p /usr/local/ssmgr/bin && \
+		mv build/slave /usr/local/ssmgr/bin/ && \
 		mv systemd/ssmgr.slave /etc/default/ && \
 		mv systemd/ssmgr-slave.service /lib/systemd/system/ \
 		; \

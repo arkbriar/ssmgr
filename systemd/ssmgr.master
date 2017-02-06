@@ -2,4 +2,4 @@
 CONFFILE=/etc/ssmgr/config.master.json
 
 # Extra command line arguments
-DAEMON_ARGS=
+DAEMON_ARGS=-v
