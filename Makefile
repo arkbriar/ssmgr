@@ -24,15 +24,15 @@ install: install-master install-slave
 
 install-master: master
 	mkdir -p /usr/local/ssmgr/bin
-	mv build/master /usr/local/ssmgr/bin
-	mv systemd/ssmgr.master /etc/default/
-	mv systemd/ssmgr-master.service /lib/systemd/system/
+	cp build/master /usr/local/ssmgr/bin
+	cp systemd/ssmgr.master /etc/default/
+	cp systemd/ssmgr-master.service /lib/systemd/system/
 
 install-slave: slave check-install
 	mkdir -p /usr/local/ssmgr/bin
-	mv build/slave /usr/local/ssmgr/bin/
-	mv systemd/ssmgr.slave /etc/default/
-	mv systemd/ssmgr-slave.service /lib/systemd/system/
+	cp build/slave /usr/local/ssmgr/bin/
+	cp systemd/ssmgr.slave /etc/default/
+	cp systemd/ssmgr-slave.service /lib/systemd/system/
 
 check-install: check-linux check-systemd
 
