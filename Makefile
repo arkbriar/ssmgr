@@ -22,7 +22,7 @@ run_slave:
 
 install: install-master install-slave
 
-install-master: master
+install-master: master check-install
 	mkdir -p /usr/local/ssmgr/bin
 	cp build/master /usr/local/ssmgr/bin
 	cp systemd/ssmgr.master /etc/default/
