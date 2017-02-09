@@ -9,8 +9,8 @@ import (
 	"github.com/kataras/iris"
 	"github.com/satori/go.uuid"
 
-	"github.com/arkbriar/ss-mgr/master/orm"
-	rpc "github.com/arkbriar/ss-mgr/protocol"
+	"github.com/arkbriar/ssmgr/master/orm"
+	rpc "github.com/arkbriar/ssmgr/protocol"
 )
 
 func CreateUser(email string) *orm.User {

@@ -10,8 +10,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
-	"github.com/arkbriar/ss-mgr/master/orm"
-	rpc "github.com/arkbriar/ss-mgr/protocol"
+	"github.com/arkbriar/ssmgr/master/orm"
+	rpc "github.com/arkbriar/ssmgr/protocol"
 )
 
 type Slave struct {

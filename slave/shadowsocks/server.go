@@ -18,7 +18,7 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
-	proc "github.com/arkbriar/ss-mgr/slave/shadowsocks/process"
+	proc "github.com/arkbriar/ssmgr/slave/shadowsocks/process"
 	"github.com/coreos/go-iptables/iptables"
 )
 

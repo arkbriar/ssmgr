@@ -20,16 +20,16 @@ func New(dialect, arg string) *gorm.DB {
 }
 
 type User struct {
-	ID        string `gorm:"priamry_key,size:32"`
-	Email     string `gorm:"not null"`
-	Group     string `gorm:"not null,DEFAULT:'default'"`
-	Time      int64  `gorm:"not null,DEFAULT:current_timestamp"`
+	ID    string `gorm:"priamry_key,size:32"`
+	Email string `gorm:"not null"`
+	Group string `gorm:"not null,DEFAULT:'default'"`
+	Time  int64  `gorm:"not null,DEFAULT:current_timestamp"`
 
 	// These fields do not conform with 3NF but for performance just keep them here.
 	// Remember to update them once Group is changed.
-	QuotaFlow int64  `gorm:"not null"`
-	Expired   int64  `gorm:"not null"`
-	Disabled  bool   `gorm:"not null"`
+	QuotaFlow int64 `gorm:"not null"`
+	Expired   int64 `gorm:"not null"`
+	Disabled  bool  `gorm:"not null"`
 }
 
 func (User) TableName() string {

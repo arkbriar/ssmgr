@@ -75,11 +75,11 @@ Master and slaves are organized as:
              +---------------+
 ```
 
-We define the protocol as rpc methods in [a .proto file](protocol/master_salve.proto).
+We define the protocol as rpc methods in [a .proto file](protocol/master_slave.proto).
 
 ## Known Issues
 
-1. [Issues](https://github.com/arkbriar/ss-mgr/issues) here with `bug`, `enhancement` and other tags.
+1. [Issues](https://github.com/arkbriar/ssmgr/issues) here with `bug`, `enhancement` and other tags.
 
 ## License
 

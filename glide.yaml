@@ -1,4 +1,4 @@
-package: github.com/arkbriar/ss-mgr
+package: github.com/arkbriar/ssmgr
 import:
 - package: github.com/Sirupsen/logrus
 - package: github.com/golang/protobuf
@@ -22,3 +22,6 @@ import:
   subpackages:
   - json
   - cipher
+- package: github.com/coreos/go-iptables
+  subpackages:
+  - iptables

@@ -4,8 +4,8 @@ import (
 	"errors"
 
 	log "github.com/Sirupsen/logrus"
-	proto "github.com/arkbriar/ss-mgr/protocol"
-	ss "github.com/arkbriar/ss-mgr/slave/shadowsocks"
+	proto "github.com/arkbriar/ssmgr/protocol"
+	ss "github.com/arkbriar/ssmgr/slave/shadowsocks"
 	google_protobuf "github.com/golang/protobuf/ptypes/empty"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"

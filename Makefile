@@ -1,18 +1,22 @@
 GO_SRC = $(shell find . -type f -name '*.go' -not -path "./vendor/*")
+FRONTEND_DIR = frontend
 
-all: frontend server slave
+all: master slave
 
 frontend: frontend/node_modules
 	cd frontend && webpack -p
 
+frontend/node_modules: ${FRONTEND_DIR}/package.json
+	cd frontend && npm install
+
 master: frontend vendor
-	go build -o build/master github.com/arkbriar/ss-mgr/master
+	go build -o build/master github.com/arkbriar/ssmgr/master
 
 slave: vendor
-	go build -o build/slave  github.com/arkbriar/ss-mgr/slave/cli
+	go build -o build/slave  github.com/arkbriar/ssmgr/slave/cli
 
 format:
-	goimports -w $(GO_SRC)
+	goimports -w ${GO_SRC}
 
 run_master:
 	build/master -c config.master.json -v
@@ -49,14 +53,11 @@ endif
 docker:
 	docker build . --no-cache -t ssmgr-master
 
-.PHONY: all frontend server slave format docker check-install
+.PHONY: all frontend master slave format docker check-install install clean
 
 vendor: glide.lock glide.yaml
 	glide install
-	go install github.com/arkbriar/ss-mgr/vendor/github.com/mattn/go-sqlite3
-
-frontend/node_modules:
-	cd frontend && npm install
+	go install github.com/arkbriar/ssmgr/vendor/github.com/mattn/go-sqlite3
 
 clean:
 	rm -f ssmgr.db

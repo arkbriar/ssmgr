@@ -1,12 +1,12 @@
 FROM golang:1.7
 
-ADD . /go/src/github.com/arkbriar/ss-mgr/
+ADD . /go/src/github.com/arkbriar/ssmgr/
 
-RUN go build -o /master github.com/arkbriar/ss-mgr/master \
+RUN go build -o /master github.com/arkbriar/ssmgr/master \
     && mkdir /data \
-    && mv /go/src/github.com/arkbriar/ss-mgr/config.master.json /data/config.json \
-    && mv /go/src/github.com/arkbriar/ss-mgr/frontend /frontend \
-    && rm -rf /go/src/github.com/arkbriar/ss-mgr \
+    && mv /go/src/github.com/arkbriar/ssmgr/config.master.json /data/config.json \
+    && mv /go/src/github.com/arkbriar/ssmgr/frontend /frontend \
+    && rm -rf /go/src/github.com/arkbriar/ssmgr \
     && rm -rf /frontend/node_modules
 
 VOLUME ["/data"]

@@ -12,9 +12,9 @@ import (
 	"os/signal"
 
 	log "github.com/Sirupsen/logrus"
-	proto "github.com/arkbriar/ss-mgr/protocol"
-	slave "github.com/arkbriar/ss-mgr/slave"
-	ss "github.com/arkbriar/ss-mgr/slave/shadowsocks"
+	proto "github.com/arkbriar/ssmgr/protocol"
+	slave "github.com/arkbriar/ssmgr/slave"
+	ss "github.com/arkbriar/ssmgr/slave/shadowsocks"
 	"google.golang.org/grpc"
 )
 

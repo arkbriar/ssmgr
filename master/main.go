@@ -10,7 +10,7 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/jinzhu/gorm"
 
-	"github.com/arkbriar/ss-mgr/master/orm"
+	"github.com/arkbriar/ssmgr/master/orm"
 )
 
 var (
@@ -34,8 +34,8 @@ type GroupConfig struct {
 	Name     string   `json:"name"`
 	SlaveIDs []string `json:"slaves"`
 	Limit    struct {
-		Flow int64 `json:"flow"`  // MB
-		Time int64 `json:"time"`  // hours
+		Flow int64 `json:"flow"` // MB
+		Time int64 `json:"time"` // hours
 	} `json:"limit"`
 }
 

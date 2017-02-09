@@ -14,7 +14,7 @@ import (
 	"github.com/kataras/go-mailer"
 	"github.com/kataras/iris"
 
-	"github.com/arkbriar/ss-mgr/master/orm"
+	"github.com/arkbriar/ssmgr/master/orm"
 )
 
 const verifyCodeExpire = 300

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
-	ss "github.com/arkbriar/ss-mgr/slave/shadowsocks"
+	ss "github.com/arkbriar/ssmgr/slave/shadowsocks"
 )
 
 func addServers(mgr ss.Manager, ports ...int32) {
