@@ -38,7 +38,7 @@
     "args": "ssmgr.db"
   },
 
-  "//slack is optional": "",
+  "// slack is optional": "",
   "slack": {
     "channel": "#SLACK_CHANNEL",
     "token": "TEST_SLACK_TOKEN",
