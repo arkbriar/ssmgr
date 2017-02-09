@@ -76,10 +76,6 @@ func fire(c *slack.Client, channel string, e *logrus.Entry) error {
 }
 
 func (h *SlackrusHook) open() {
-	if h.c != nil {
-		h.close()
-	}
-
 	h.c = slack.New(h.Token)
 	h.msgQ = make(chan *logrus.Entry, 200)
 
