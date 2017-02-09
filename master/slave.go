@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"time"
 
@@ -8,10 +9,15 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 
 	"github.com/arkbriar/ssmgr/master/orm"
 	rpc "github.com/arkbriar/ssmgr/protocol"
+)
+
+var (
+	caFile = flag.String("ca", "", "Path of ca file (enable TLS when specified).")
 )
 
 type Slave struct {
@@ -31,9 +37,21 @@ func InitSlaves() {
 		md := metadata.Pairs("token", info.Token)
 		ctx := metadata.NewContext(context.Background(), md)
 
-		conn, err := grpc.Dial(address, grpc.WithInsecure())
+		opts := []grpc.DialOption{}
+		if len(*caFile) != 0 {
+			creds, err := credentials.NewClientTLSFromFile(*caFile, "")
+			if err != nil {
+				logrus.Warnf("Faild to construct a TLS from the input certificate: %s", *caFile)
+				opts = append(opts, grpc.WithInsecure())
+			} else {
+				opts = append(opts, grpc.WithTransportCredentials(creds))
+			}
+		} else {
+			opts = append(opts, grpc.WithInsecure())
+		}
+		conn, err := grpc.Dial(address, opts...)
 		if err != nil {
-			logrus.Warn("Failed to dial %s", address)
+			logrus.Warnf("Failed to dial %s", address)
 		}
 
 		client := rpc.NewSSMgrSlaveClient(conn)
