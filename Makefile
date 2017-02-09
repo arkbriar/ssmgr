@@ -16,7 +16,7 @@ slave: vendor
 	go build -o build/slave  github.com/arkbriar/ssmgr/slave/cli
 
 format:
-	goimports -w ${GO_SRC}
+	goimports -w -d ${GO_SRC}
 
 run_master:
 	build/master -c config.master.json -ca testdata/certs/ca.pem -v

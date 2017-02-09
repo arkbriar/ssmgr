@@ -11,6 +11,8 @@ import (
 	"github.com/jinzhu/gorm"
 
 	"github.com/arkbriar/ssmgr/master/orm"
+
+	"github.com/arkbriar/ssmgr/master/slack"
 )
 
 var (
@@ -58,11 +60,31 @@ type Config struct {
 		Dialect string `json:"dialect"`
 		Args    string `json:"args"`
 	} `json:"database"`
+	Slack *struct {
+		Token   string   `json:"token"`
+		Channel string   `json:"channel"`
+		Levels  []string `json:"levels"`
+	} `json:"slack,omitempty"`
 }
 
 var db *gorm.DB
 
 var config *Config
+
+func parseLogrusLevels(levels []string) ([]logrus.Level, error) {
+	if levels == nil {
+		return nil, nil
+	}
+	ret := make([]logrus.Level, len(levels))
+	for _, level := range levels {
+		l, err := logrus.ParseLevel(level)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, l)
+	}
+	return ret, nil
+}
 
 func main() {
 	flag.Parse()
@@ -75,6 +97,20 @@ func main() {
 	config, err = parseConfig(*configPath)
 	if err != nil {
 		logrus.Fatal(err)
+	}
+
+	// enable slack hook if slack is configured
+
+	if config.Slack != nil {
+		levels, err := parseLogrusLevels(config.Slack.Levels)
+		if err != nil {
+			logrus.Fatal(err)
+		}
+		logrus.AddHook((&slack.SlackrusHook{
+			Channel:        config.Slack.Channel,
+			Token:          config.Slack.Token,
+			AcceptedLevels: levels,
+		}).Connect())
 	}
 
 	db = orm.New(config.Database.Dialect, config.Database.Args)

@@ -36,5 +36,19 @@
   "database": {
     "dialect": "sqlite3",
     "args": "ssmgr.db"
+  },
+
+  "//slack is optional": "",
+  "slack": {
+    "channel": "#SLACK_CHANNEL",
+    "token": "TEST_SLACK_TOKEN",
+    "levels": [
+      "panic",
+      "fatal",
+      "error",
+      "warn",
+      "info",
+      "debug"
+    ]
   }
 }
