@@ -81,13 +81,13 @@ func handleEmail(ctx *iris.Context) {
 	}
 
 	vcode := fmt.Sprintf("%06d", rand.Int31n(1000000))
-	iris.Logger.Printf("Send verify code to %s: %s", request.Email, vcode)
+	logrus.Infof("Send verify code to %s: %s", request.Email, vcode)
 
 	content := fmt.Sprintf("Your verify code is %s.\n", vcode)
 	go func() {
 		err := mail.Send("Free Shadowsocks", content, request.Email)
 		if err != nil {
-			iris.Logger.Print("Failed to send email: ", err.Error())
+			logrus.Errorf("Failed to send email: %s", err)
 		}
 	}()
 
