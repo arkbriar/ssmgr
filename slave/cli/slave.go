@@ -80,7 +80,7 @@ func init() {
 func run(ctx context.Context) error {
 	select {
 	case <-ctx.Done():
-		return errors.New("Early cancel.")
+		return errors.New("early cancel")
 	default:
 	}
 

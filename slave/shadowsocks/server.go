@@ -435,7 +435,7 @@ func (s *Server) load(filename string) error {
 }
 
 var (
-	errServerAlive          = errors.New("Server is alive.")
+	errServerAlive          = errors.New("server is alive")
 	errServerAlreadyStarted = errors.New("server already started")
 	errServerNotStarted     = errors.New("server not started")
 )

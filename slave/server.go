@@ -32,9 +32,9 @@ func authorize(ctx context.Context, token string) error {
 		if len(md["token"]) > 0 && md["token"][0] == token {
 			return nil
 		}
-		return errors.New("Access denied.")
+		return errors.New("access denied")
 	}
-	return errors.New("Empty metadata.")
+	return errors.New("empty metadata")
 }
 
 // StreamAuthInterceptor returns an interceptor to do authorization for grpc stream call.
