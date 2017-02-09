@@ -19,7 +19,7 @@ format:
 	goimports -w ${GO_SRC}
 
 run_master:
-	build/master -c config.master.json -v
+	build/master -c config.master.json -ca testdata/certs/ca.pem -v
 
 run_slave:
 	build/slave -c config.slave.json -v

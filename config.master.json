@@ -36,5 +36,8 @@
   "database": {
     "dialect": "sqlite3",
     "args": "ssmgr.db"
+  },
+  "tls": {
+    "ca_file": "testdata/certs/cert.pem"
   }
 }

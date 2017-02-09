@@ -16,6 +16,7 @@ import (
 	slave "github.com/arkbriar/ssmgr/slave"
 	ss "github.com/arkbriar/ssmgr/slave/shadowsocks"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 var (
@@ -31,6 +32,10 @@ type slaveConfig struct {
 	Port    int    `json:"port,omitemtpy"`
 	MgrPort int    `json:"manager_port,omitempty"`
 	Token   string `json:"token"`
+	TLS     *struct {
+		CertFile string `json:"cert_file"`
+		KeyFile  string `json:"key_file"`
+	} `json:"tls"`
 }
 
 // Global configuration object
@@ -85,8 +90,24 @@ func run(ctx context.Context) error {
 	}
 
 	token := conf.Token
-	s := grpc.NewServer(grpc.UnaryInterceptor(slave.UnaryAuthInterceptor(token)),
-		grpc.StreamInterceptor(slave.StreamAuthInterceptor(token)))
+	serverOpts := []grpc.ServerOption{
+		grpc.UnaryInterceptor(slave.UnaryAuthInterceptor(token)),
+		grpc.StreamInterceptor(slave.StreamAuthInterceptor(token)),
+	}
+
+	// enable grpc channel with credentials
+
+	if conf.TLS != nil {
+		log.Info("Encrypting grpc channel with TLS")
+
+		cred, err := credentials.NewServerTLSFromFile(conf.TLS.CertFile, conf.TLS.KeyFile)
+		if err != nil {
+			return err
+		}
+		serverOpts = append(serverOpts, grpc.Creds(cred))
+	}
+
+	s := grpc.NewServer(serverOpts...)
 	proto.RegisterSSMgrSlaveServer(s, slave.NewSSMgrSlaveServer(token, mgr))
 
 	// listen and do the restoration
