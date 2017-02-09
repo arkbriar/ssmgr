@@ -35,7 +35,7 @@ type slaveConfig struct {
 	TLS     *struct {
 		CertFile string `json:"cert_file"`
 		KeyFile  string `json:"key_file"`
-	} `json:"tls"`
+	} `json:"tls,omitempty"`
 }
 
 // Global configuration object
