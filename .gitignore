@@ -35,3 +35,6 @@ ssmgr.db
 node_modules/
 
 /frontend/libs/bundle.js
+
+# Jetbrains
+.idea
