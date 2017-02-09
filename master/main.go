@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -73,7 +74,7 @@ var config *Config
 
 func parseLogrusLevels(levels []string) ([]logrus.Level, error) {
 	if levels == nil {
-		return nil, nil
+		return nil, errors.New("empty levels")
 	}
 	ret := make([]logrus.Level, len(levels))
 	for _, level := range levels {
@@ -104,13 +105,16 @@ func main() {
 	if config.Slack != nil {
 		levels, err := parseLogrusLevels(config.Slack.Levels)
 		if err != nil {
-			logrus.Fatal(err)
+			logrus.Warnf("Can not parse levels: %s", err)
+
+			logrus.Warnf("Slack hook is not working.")
+		} else {
+			logrus.AddHook((&slack.SlackrusHook{
+				Channel:        config.Slack.Channel,
+				Token:          config.Slack.Token,
+				AcceptedLevels: levels,
+			}).Connect())
 		}
-		logrus.AddHook((&slack.SlackrusHook{
-			Channel:        config.Slack.Channel,
-			Token:          config.Slack.Token,
-			AcceptedLevels: levels,
-		}).Connect())
 	}
 
 	db = orm.New(config.Database.Dialect, config.Database.Args)
