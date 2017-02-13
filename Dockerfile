@@ -15,5 +15,5 @@ WORKDIR /data
 
 # CA files are stored in /data/ca.pem, mounting it before running a secure master
 
-ENTRYPOINT /master -w /frontend -ca /data/ca.pem
+ENTRYPOINT /master -w /frontend -c /data/config.json -ca /data/ca.pem
 
