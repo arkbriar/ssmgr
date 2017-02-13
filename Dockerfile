@@ -13,5 +13,7 @@ VOLUME ["/data"]
 
 WORKDIR /data
 
-ENTRYPOINT /master -w /frontend
+# CA files are stored in /etc/ssmgr/ca, mounting it before running a secure master
+
+ENTRYPOINT /master -w /frontend -ca /etc/ssmgr/ca
 
