@@ -137,7 +137,7 @@ sign_key() {
     echo "Generating server cert ($days days, $ip), saving to $outfile"
     echo
 
-    tmpdir=/tmp/ssl_gen/$(head -c 40 /dev/urandom | base64 -i - | sed "s/\\//_/g")
+    tmpdir=/tmp/ssl_gen_$(head -c 40 /dev/urandom | base64 -i - | sed "s/\\//_/g")
     mkdir -p $tmpdir
     echo subjectAltName = IP:$ip > $tmpdir/extfile.cnf
     openssl req -new -key $key_file -out $tmpdir/server.csr
