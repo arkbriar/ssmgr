@@ -16,13 +16,13 @@ SHORT_OPTS=i:,n:,d:,o:,c:,s:,v,h
 LONG_OPTS=ip:,numbits:,days:,output:,ca:,serial:,verbose,help
 
 usage() {
-    echo """Usage: $0
-    -i/--ip <ip, default 127.0.0.1>
-    -o/--output <output dir, default .>
-    -n/--numbits <bits, default 2048>
-    -d/--days <days, default 365>
-    -c/--ca <ca dir(storing ca.pem & ca.key), default .>
-    -s/--serial <ca serial file, default \"\">
+    echo """Usage: $0 [options]
+    -i/--ip         <ip, default 127.0.0.1>
+    -o/--output     <output dir, default .>
+    -n/--numbits    <bits, default 2048>
+    -d/--days       <days, default 365>
+    -c/--ca         <ca dir(storing ca.pem & ca.key), default .>
+    -s/--serial     <ca serial file>
     -v/--verbose"""
 }
 
