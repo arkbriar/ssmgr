@@ -30,7 +30,8 @@ make all
 
 ## Install
 
-**NOTE**, `install` is only supported on linux with systemd.
+**[NOTE]** `install` is only supported on linux with systemd.
+**[NOTE]** If you want to enable TLS, you should modify the env and config files and specify your certificates. For more details about generating self-signed certificates, please see [Generate Self-signed Certificates](#generate_self-signed_certificates).
 
 Before install ssmgr, install shadowsocks-libev first.
 
@@ -56,26 +57,82 @@ sudo make install-slave
 
 ## Docs
 
-### Protocols
+### Enable TLS
 
-#### Master-Slave
+Enable TLS to secure the communication between master and slaves.
 
-Master and slaves are organized as: 
+**TLS on Slave**
+
+Add "tls" field to config.json file.
+
+```json
+{
+  "port": 6001,
+  "manager_port": 6001,
+  "token": "SSMGRTEST",
+  "tls": {
+    "cert_file": "testdata/certs/server.crt",
+    "key_file": "testdata/certs/server.key"
+  }
+}
+```
+
+**TLS on Master**
+
+Specify CA certificate file when you start the master.
+
+```bash
+master -w frontend -c config.json -ca path/to/ca.pem
+```
+
+### Generate Self-signed Certificates
+
+Generate CA key and certificate file if you do not have one:
 
 ```
-+--------------+    +--------------+       +-------+
-| ssmgr slave  |    | ssmgr slave  |  ...  |       |
-+--------------+    +--------------+       +-------+
-       |                    |                  |
-       +------------+-------+-------  ...  ----+
-                    |
-                    |
-             +---------------+
-             | ssmgr master  |
-             +---------------+
+openssl genrsa -out ca.key 2048
+openssl req -x509 -new -nodes -key ca.key -sha256 -days 3650 -out ca.pem
 ```
 
-We define the protocol as rpc methods in [a .proto file](protocol/master_slave.proto).
+Then, using script `gssc` to generate these certificates.
+
+```bash
+./tools/gssc --ip SLAVE_IP --ca CA_DIR
+```
+
+This will generate a 2048 bits key and a certificate whose expiry is 365 days in current directory.
+
+For more details of `gssc`, please see
+
+```bash
+./tools/gssc -h
+```
+
+### Log to Slack
+
+We implement a hook of logrus to send some levels of logs to slack channel. This helps developers to monitor servers and to develop ChatOps in future.
+
+Slack logs is only supported on master. To enable it, add the "slack" field to config.json file, 
+
+```json
+{
+  "...": "...",
+  "slack": {
+    "channel": "#SLACK_CHANNEL",
+    "token": "TEST_SLACK_TOKEN",
+    "levels": [
+      "panic",
+      "fatal",
+      "error",
+      "warn",
+      "info",
+      "debug"
+    ]
+  }
+}
+```
+
+where token is the application token and levels are the logrus levels to send.
 
 ## Known Issues
 
