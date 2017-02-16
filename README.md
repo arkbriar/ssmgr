@@ -31,6 +31,7 @@ make all
 ## Install
 
 **[NOTE]** `install` is only supported on linux with systemd.
+
 **[NOTE]** If you want to enable TLS, you should modify the env and config files and specify your certificates. For more details about generating self-signed certificates, please see [Generate Self-signed Certificates](#generate-self-signed-certificates).
 
 Before install ssmgr, install shadowsocks-libev first.
