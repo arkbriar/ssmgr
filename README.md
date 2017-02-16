@@ -110,7 +110,7 @@ For more details of `gssc`, please see
 
 ### Log to Slack
 
-We implement a hook of logrus to send some levels of logs to slack channel. This helps developers to monitor servers and to develop ChatOps in future.
+We implement a hook of logrus to send some levels of logs to slack channel. This helps developers to monitor servers and to develop ChatOps in the future.
 
 Slack logs is only supported on master. To enable it, add the "slack" field to config.json file, 
 
