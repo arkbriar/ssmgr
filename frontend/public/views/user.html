@@ -22,15 +22,23 @@
                     </md-list-item>
                     <md-list-item class="md-3-line" ng-show="users.length" ng-repeat="user in users" ng-click="toAccount(user.address)">
                         <div class="md-list-item-text" flex="70">
-                            <h4>{{user.email}}<h4>
+                            <h4>{{user.email}}</h4>
                             <h4>{{user.expired | relativeTime }}</h4>
-                            <h4>{{user.currentFlow | flow1024}} / {{user.flow | flow1024}}<h4>
+                            <h4>{{user.currentFlow | flow1024}} / {{user.flow | flow1024}}</h4>
                         </div>
                         <div class="md-list-item-text" flex="30">
-                            <div layout="row" layout-align="end center" ng-click="toAccount(user.address)">
-                                <md-button class="md-icon-button" aria-label="edit">
-                                    <i class="material-icons">chevron_right</i>
-                                </md-button>
+                            <div layout="row" layout-align="end center">
+                                <md-menu md-offset="0 -7">
+                                    <!--Use mdOpenMenu instead of mdMenu.open. See Sajeetharan's answer in http://stackoverflow.com/questions/42041868/injecting-mdmenu-into-scope-cannot-read-property-open-of-undefined .-->
+                                    <md-button aria-label="Open group menu" class="hamburger-button md-icon-button" ng-click="$mdOpenMenu($event)">
+                                        <i class="material-icons">expand_more</i>
+                                    </md-button>
+                                    <md-menu-content width="2">
+                                        <md-menu-item ng-repeat="group in groups">
+                                            <md-button ng-click="changeGroup(user.address, group)"> <span md-menu-align-target> </span> {{group}} </md-button>
+                                        </md-menu-item>
+                                    </md-menu-content>
+                                </md-menu>
                             </div>
                         </div>
                         <md-divider></md-divider>
