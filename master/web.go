@@ -311,7 +311,7 @@ func handleUser(ctx *iris.Context) {
 	}
 
 	const SQL = `SELECT user_id, email, quota_flow, sum(flow) AS current_flow, time, expired, disabled
-FROM users JOIN flow_record ON users.id == flow_record.user_id
+FROM users JOIN flow_record ON users.id = flow_record.user_id
 GROUP BY user_id`
 	rows, err := db.Raw(SQL).Rows()
 	if err != nil {
