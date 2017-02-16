@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	caFile = flag.String("ca", "", "Path of ca file (enable TLS when specified).")
+	caFile = flag.String("ca", "", "Path of CA X.509(.pem) file (enable TLS when specified).")
 )
 
 type Slave struct {
