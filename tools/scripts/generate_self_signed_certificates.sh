@@ -162,7 +162,7 @@ fi
 # generate server key
 IP_U=$(echo $IP | sed 's/\./_/g')
 SERVER_KEY=$OUT_DIR/server_$IP_U.key
-SERVER_CERT=$OUT_DIR/server_$IP_U.pem
+SERVER_CERT=$OUT_DIR/server_$IP_U.crt
 
 generate_key $NUMBITS $SERVER_KEY
 if [ $? -ne 0 ]; then

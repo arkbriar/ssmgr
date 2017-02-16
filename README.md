@@ -1,6 +1,6 @@
 # SSMGR
 
-Shadowsocks manager of multiple servers, providing simple and easy way for users to acquire shadowsocks services over regions of servers.
+Shadowsocks manager of multiple servers, providing simple and easy way for users to acquire shadowsocks services over regions of servers and advanced tools for operators to manage the servers.
 
 **NOTIFICATION** *After [commit ca33594](https://github.com/arkbriar/ssmgr/pull/23/commits/ca335940389f4a9ec937386a898880d52b529f70), slave's managed dir changes to $HOME/.ssmgr, refer to [#23](https://github.com/arkbriar/ssmgr/pull/23) if you want to do a migration.*
 
@@ -79,7 +79,7 @@ Add "tls" field to config.json file.
 
 **TLS on Master**
 
-Specify CA certificate file when you start the master.
+Specify CA X.509 file when you start the master.
 
 ```bash
 master -w frontend -c config.json -ca path/to/ca.pem
@@ -87,7 +87,7 @@ master -w frontend -c config.json -ca path/to/ca.pem
 
 ### Generate Self-signed Certificates
 
-Generate CA key and certificate file if you do not have one:
+Generate CA key and PEM file if you do not have one:
 
 ```
 openssl genrsa -out ca.key 2048
