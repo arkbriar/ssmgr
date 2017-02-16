@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -11,6 +12,8 @@ import (
 	"github.com/jinzhu/gorm"
 
 	"github.com/arkbriar/ssmgr/master/orm"
+
+	"github.com/arkbriar/ssmgr/master/slack"
 )
 
 var (
@@ -58,11 +61,31 @@ type Config struct {
 		Dialect string `json:"dialect"`
 		Args    string `json:"args"`
 	} `json:"database"`
+	Slack *struct {
+		Token   string   `json:"token"`
+		Channel string   `json:"channel"`
+		Levels  []string `json:"levels"`
+	} `json:"slack,omitempty"`
 }
 
 var db *gorm.DB
 
 var config *Config
+
+func parseLogrusLevels(levels []string) ([]logrus.Level, error) {
+	if levels == nil {
+		return nil, errors.New("empty levels")
+	}
+	ret := make([]logrus.Level, len(levels))
+	for _, level := range levels {
+		l, err := logrus.ParseLevel(level)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, l)
+	}
+	return ret, nil
+}
 
 func main() {
 	flag.Parse()
@@ -75,6 +98,23 @@ func main() {
 	config, err = parseConfig(*configPath)
 	if err != nil {
 		logrus.Fatal(err)
+	}
+
+	// enable slack hook if slack is configured
+
+	if config.Slack != nil {
+		levels, err := parseLogrusLevels(config.Slack.Levels)
+		if err != nil {
+			logrus.Warnf("Can not parse levels: %s", err)
+
+			logrus.Warnf("Slack hook is not working.")
+		} else {
+			logrus.AddHook((&slack.SlackrusHook{
+				Channel:        config.Slack.Channel,
+				Token:          config.Slack.Token,
+				AcceptedLevels: levels,
+			}).Connect())
+		}
 	}
 
 	db = orm.New(config.Database.Dialect, config.Database.Args)

@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	"github.com/kataras/iris"
 	"github.com/satori/go.uuid"
 
 	"github.com/arkbriar/ssmgr/master/orm"
@@ -27,7 +26,7 @@ func CreateUser(email string) *orm.User {
 	}
 	db.Save(&user)
 
-	iris.Logger.Printf("New user: %s, email: %s", user.ID, user.Email)
+	logrus.Infof("New user: %s, email: %s", user.ID, user.Email)
 
 	// Allocating ports is slow, do it in another thread
 	go allocateForUser(userID, "default")
