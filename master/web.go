@@ -43,6 +43,8 @@ func NewApp(webroot string) *iris.Framework {
 	app.Post("/logout", handleLogout)
 	app.Post("/user", handleUser)
 	app.Post("/flow", handleFlow)
+	app.Post("/group", handleGroup)
+	app.Put("/user", handleUserPut)
 
 	app.Get("/*path", func(ctx *iris.Context) {
 		path := ctx.Param("path")
@@ -55,6 +57,11 @@ func NewApp(webroot string) *iris.Framework {
 	})
 
 	return app
+}
+
+func isAdmin(ctx *iris.Context) bool {
+	admin, err := ctx.Session().GetBoolean("is_admin")
+	return err == nil && admin
 }
 
 func handleEmail(ctx *iris.Context) {
@@ -254,7 +261,7 @@ type systemConfig struct {
 
 // TODO: Currently front-end does not support config for groups
 func handleConfig(ctx *iris.Context) {
-	if admin, err := ctx.Session().GetBoolean("is_admin"); err != nil || !admin {
+	if !isAdmin(ctx) {
 		ctx.SetStatusCode(iris.StatusUnauthorized)
 		ctx.WriteString("please login first")
 		return
@@ -267,7 +274,7 @@ func handleConfig(ctx *iris.Context) {
 }
 
 func handleConfigPut(ctx *iris.Context) {
-	if admin, err := ctx.Session().GetBoolean("is_admin"); err != nil || !admin {
+	if !isAdmin(ctx) {
 		ctx.SetStatusCode(iris.StatusUnauthorized)
 		ctx.WriteString("please login first")
 		return
@@ -297,7 +304,7 @@ func handleLogout(ctx *iris.Context) {
 }
 
 func handleUser(ctx *iris.Context) {
-	if admin, err := ctx.Session().GetBoolean("is_admin"); err != nil || !admin {
+	if !isAdmin(ctx) {
 		ctx.SetStatusCode(iris.StatusUnauthorized)
 		ctx.WriteString("please login first")
 		return
@@ -339,7 +346,7 @@ GROUP BY user_id`
 }
 
 func handleFlow(ctx *iris.Context) {
-	if admin, err := ctx.Session().GetBoolean("is_admin"); err != nil || !admin {
+	if !isAdmin(ctx) {
 		ctx.SetStatusCode(iris.StatusUnauthorized)
 		ctx.WriteString("please login first")
 		return
@@ -353,4 +360,46 @@ func handleFlow(ctx *iris.Context) {
 	db.Raw(SQL).Scan(&result)
 
 	ctx.JSON(iris.StatusOK, &result)
+}
+
+func handleGroup(ctx *iris.Context) {
+	if !isAdmin(ctx) {
+		ctx.SetStatusCode(iris.StatusUnauthorized)
+		ctx.WriteString("please login first")
+		return
+	}
+
+	ctx.JSON(iris.StatusOK, GetGroupIDs())
+}
+
+type userConfig struct {
+	UserID  string `json:"user_id",valid:"length(32|32)"`
+	GroupID string `json:"group_id"`
+}
+
+func handleUserPut(ctx *iris.Context) {
+	if !isAdmin(ctx) {
+		ctx.SetStatusCode(iris.StatusUnauthorized)
+		ctx.WriteString("please login first")
+		return
+	}
+
+	var conf userConfig
+	if err := ctx.ReadJSON(&conf); err != nil {
+		panic(err.Error())
+	}
+	if _, err := govalidator.ValidateStruct(&conf); err != nil {
+		ctx.WriteString(err.Error())
+		return
+	}
+
+	if !HasGroup(conf.GroupID) {
+		ctx.WriteString("group " + conf.GroupID + " not found")
+		return
+	}
+
+	if err := ChangeUserGroup(conf.UserID, conf.GroupID); err != nil {
+		ctx.WriteString(err.Error())
+		return
+	}
 }
