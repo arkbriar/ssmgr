@@ -70,9 +70,12 @@ func RemoveUser(userIDs ...string) {
 
 func removeUserAllocation(userIDs ...string) {
 	var allocs []orm.Allocation
-	db.Where("user_id IN (?)", userIDs).Scan(&allocs)
 
-	// gorm may print "no such table", just ignore it
+	// Referring to the documentation of gorm [http://jinzhu.me/gorm/crud.html#query],
+	// you should scan the table either by speicifing table name or using raw sql.
+
+	db.Table(orm.Allocation{}.TableName()).Where("user_id IN (?)", userIDs).Scan(&allocs)
+
 	db.Where("user_id IN (?)", userIDs).Delete(&orm.Allocation{})
 
 	for _, alloc := range allocs {
