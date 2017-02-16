@@ -6,7 +6,9 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
+	"time"
 
 	"github.com/Sirupsen/logrus"
 	"github.com/jinzhu/gorm"
@@ -87,6 +89,14 @@ func parseLogrusLevels(levels []string) ([]logrus.Level, error) {
 	return ret, nil
 }
 
+func mustCreate(filename string) *os.File {
+	file, err := os.Create(filename)
+	if err != nil {
+		panic(err)
+	}
+	return file
+}
+
 func main() {
 	flag.Parse()
 
@@ -118,6 +128,14 @@ func main() {
 	}
 
 	db = orm.New(config.Database.Dialect, config.Database.Args)
+
+	if *verbose {
+		db.LogMode(true)
+		if err := os.MkdirAll("/tmp/ssmgr/", 0744); err != nil {
+			logrus.Warn(err)
+		}
+		db.SetLogger(gorm.Logger{log.New(mustCreate(fmt.Sprintf("/tmp/ssmgr/master_db_%s.log", time.Now().Format("01-02-2006__15:04:05"))), "\r\n", 0)})
+	}
 
 	InitSlaves()
 	InitGroups()

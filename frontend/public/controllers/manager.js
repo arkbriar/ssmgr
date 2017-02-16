@@ -105,10 +105,13 @@ app
       }]);
     };
     $timeout(() => { menu(); }, 250);
-    $scope.getUser = () => {
+    $scope.getUsersAndGroups = () => {
       $scope.users || $scope.loading(true);
-      $http.post('/user')
+      $http.post('/group')
       .then(success => {
+          $scope.groups = success.data;
+          return $http.post('/user');
+      }).then(success => {
         $scope.users = success.data;
         return $http.post('/flow');
       }).then(success => {
@@ -121,15 +124,19 @@ app
         }
       });
     };
-    $scope.getUser();
+    $scope.getUsersAndGroups();
     const interval = $interval(() => {
-      $scope.getUser();
+      $scope.getUsersAndGroups();
     }, 60 * 1000);
     $scope.setInterval(interval);
     $scope.toAccount = address => {
       $state.go('account', {
         id: address,
       });
+    };
+    $scope.changeGroup = (userId, groupId) => {
+      var userConf = {"user_id": userId, "group_id": groupId};
+      $http.put('/user', userConf);
     };
   }])
 ;

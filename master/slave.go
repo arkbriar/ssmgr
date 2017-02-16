@@ -168,7 +168,7 @@ func updateStats(serverID string, slave *Slave) error {
 
 func checkUserLimit() error {
 	const SQL = `SELECT user_id, quota_flow, sum(flow) AS current_flow, expired
-FROM users JOIN flow_record ON users.id == flow_record.user_id
+FROM users JOIN flow_record ON users.id = flow_record.user_id
 WHERE disabled = 0
 GROUP BY user_id`
 

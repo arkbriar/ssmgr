@@ -19,10 +19,12 @@ format:
 	goimports -w -d ${GO_SRC}
 
 run_master:
-	build/master -c config.master.json -ca testdata/certs/ca.pem -v
+	if [ ! -e build/config.master.json ]; then cp config.master.json build/; fi
+	build/master -c build/config.master.json -ca testdata/certs/ca.pem -v
 
 run_slave:
-	build/slave -c config.slave.json -v
+	if [ ! -e build/config.slave.json ]; then cp config.slave.json build/; fi
+	build/slave -c build/config.slave.json -v
 
 install: install-master install-slave
 
