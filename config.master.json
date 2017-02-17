@@ -42,7 +42,8 @@
   "// replace 'database' field with the following object to test on mysql": "",
   "__database": {
     "dialect": "mysql",
-    "args": "root:test_pass@tcp(localhost:3306)/ssmgr?charset=utf8&parseTime=True&loc=Local"
+    "args": "root:test_pass@tcp(localhost:3306)/ssmgr?charset=utf8&parseTime=True&loc=Local",
+    "enable_log": true
   },
 
   "// slack is optional": "",
