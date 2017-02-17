@@ -62,7 +62,7 @@ type Config struct {
 	Database struct {
 		Dialect   string `json:"dialect"`
 		Args      string `json:"args"`
-		EnableLog string `json:"enable_log,omitempty"`
+		EnableLog bool   `json:"enable_log,omitempty"`
 	} `json:"database"`
 	Slack *struct {
 		Token   string   `json:"token"`

@@ -18,13 +18,26 @@ slave: vendor
 format:
 	goimports -w -d ${GO_SRC}
 
-run_master:
-	if [ ! -e build/config.master.json ]; then cp config.master.json build/; fi
-	build/master -c build/config.master.json -ca testdata/certs/ca.pem -v
+check-debugger:
+ifeq (, $(shell which dlv))
+	$(error Debugger dlv is not found.)
+endif
 
-run_slave:
-	if [ ! -e build/config.slave.json ]; then cp config.slave.json build/; fi
-	build/slave -c build/config.slave.json -v
+copy-config-files:
+	@ if [ ! -e build/config.master.json ]; then cp config.master.json build/; fi
+	@ if [ ! -e build/config.slave.json ]; then cp config.slave.json build/; fi
+
+run-master: copy-config-files
+	build/master -c build/config.master.json -ca testdata/certs/ca.pem
+
+run-slave: copy-config-files
+	build/slave -c build/config.slave.json
+
+debug-master: check-debugger copy-config-files
+	dlv exec build/master -- -c build/config.master.json -ca testdata/certs/ca.pem -v
+
+debug-slave: check-debugger copy-config-files
+	dlv exec build/slave -- -c build/config.slave.json -v
 
 install: install-master install-slave
 

@@ -138,6 +138,7 @@ where token is the application token and levels are the logrus levels to send.
 ## Known Issues
 
 1. [Issues](https://github.com/arkbriar/ssmgr/issues?q=is%3Aopen+is%3Aissue+label%3Abug) here with `bug` tags.
+2. Can not debug on master because it imports a library with native C codes (go-sqlite3).
 
 ## License
 
