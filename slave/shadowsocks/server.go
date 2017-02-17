@@ -29,8 +29,7 @@ var (
 
 func init() {
 	if _, err := exec.LookPath("ss-server"); err != nil {
-		log.Warnf("Can not find ss-server in $PATH. Install it.")
-		os.Exit(-1)
+		log.Fatalf("Can not find ss-server in $PATH. Install it.")
 	}
 
 	// initialize ipt and warn unsupported

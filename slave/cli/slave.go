@@ -63,14 +63,12 @@ func checkConfig(c *slaveConfig) error {
 func init() {
 	flag.Parse()
 	if c, err := parseConfig(*config); err != nil {
-		log.Error(err)
-		os.Exit(-1)
+		log.Fatal(err)
 	} else {
 		conf = c
 	}
 	if err := checkConfig(conf); err != nil {
-		log.Error(err)
-		os.Exit(-1)
+		log.Fatal(err)
 	}
 	if *verbose {
 		log.SetLevel(log.DebugLevel)
@@ -153,7 +151,6 @@ func main() {
 	}()
 
 	if err := run(ctx); err != nil {
-		log.Error(err)
-		os.Exit(-1)
+		log.Fatal(err)
 	}
 }

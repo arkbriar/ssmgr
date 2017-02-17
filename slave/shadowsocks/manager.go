@@ -211,7 +211,7 @@ func (mgr *manager) Remove(port int32) error {
 	}
 	os.RemoveAll(s.runPath)
 
-	log.Info("Remove server(%s)", s)
+	log.Infof("Remove server(%s)", s)
 
 	return nil
 }
@@ -289,7 +289,7 @@ func (mgr *manager) restore(s *Server, serverPath string) error {
 		return err
 	}
 
-	log.Info("Server(%s) restored.", s)
+	log.Infof("Server(%s) restored.", s)
 
 	return nil
 }
