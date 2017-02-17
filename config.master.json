@@ -35,7 +35,8 @@
   },
   "database": {
     "dialect": "sqlite3",
-    "args": "ssmgr.db"
+    "args": "ssmgr.db",
+    "enable_log": true
   },
 
   "// replace 'database' field with the following object to test on mysql": "",

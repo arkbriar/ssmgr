@@ -60,8 +60,9 @@ type Config struct {
 		FromAlias string `json:"fromAddr"`
 	} `json:"email"`
 	Database struct {
-		Dialect string `json:"dialect"`
-		Args    string `json:"args"`
+		Dialect   string `json:"dialect"`
+		Args      string `json:"args"`
+		EnableLog string `json:"enable_log,omitempty"`
 	} `json:"database"`
 	Slack *struct {
 		Token   string   `json:"token"`
@@ -129,12 +130,14 @@ func main() {
 
 	db = orm.New(config.Database.Dialect, config.Database.Args)
 
-	if *verbose {
+	if *verbose || config.Database.EnableLog {
 		db.LogMode(true)
 		if err := os.MkdirAll("/tmp/ssmgr/", 0744); err != nil {
 			logrus.Warn(err)
 		}
-		db.SetLogger(gorm.Logger{log.New(mustCreate(fmt.Sprintf("/tmp/ssmgr/master_db_%s.log", time.Now().Format("01-02-2006__15:04:05"))), "\r\n", 0)})
+		db.SetLogger(gorm.Logger{log.New(mustCreate(
+			fmt.Sprintf("/tmp/ssmgr/master_db_%s.log", time.Now().Format("01-02-2006__15:04:05")),
+		), "\r\n", 0)})
 	}
 
 	InitSlaves()
