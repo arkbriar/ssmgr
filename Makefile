@@ -20,7 +20,7 @@ format:
 
 check-debugger:
 ifeq (, $(shell which dlv))
-	$(error Debugger dlv is not found.)
+	$(error Debugger dlv is not found)
 endif
 
 copy-config-files:
@@ -57,12 +57,12 @@ check-install: check-linux check-systemd
 
 check-linux:
 ifneq (Linux, $(shell uname -s))
-	$(error "Install is not supported on non-linux system.")
+	$(error Install is not supported on non-linux system)
 endif
 
 check-systemd:
 ifeq (, $(shell which systemctl))
-	$(error "Install is not supported on system without systemd.")
+	$(error Install is not supported on system without systemd)
 endif
 
 docker:
