@@ -1,5 +1,7 @@
 GO_SRC = $(shell find . -type f -name '*.go' -not -path "./vendor/*")
 FRONTEND_DIR = frontend
+PROTOCOL_GO_SRC = protocol/master_slave.pb.go
+PROTOCOL_PROTO_SRC = protocol/master_slave.proto
 
 all: master slave
 
@@ -9,11 +11,14 @@ frontend: frontend/node_modules
 frontend/node_modules: ${FRONTEND_DIR}/package.json
 	cd frontend && npm install
 
-master: frontend vendor
+master: frontend vendor ${PROTOCOL_GO_SRC}
 	go build -o build/master github.com/arkbriar/ssmgr/master
 
-slave: vendor
+slave: vendor ${PROTOCOL_GO_SRC}
 	go build -o build/slave  github.com/arkbriar/ssmgr/slave/cli
+
+${PROTOCOL_GO_SRC}: ${PROTOCOL_PROTO_SRC}
+	go generate
 
 format:
 	goimports -w -d ${GO_SRC}
