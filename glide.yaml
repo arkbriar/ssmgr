@@ -25,3 +25,4 @@ import:
 - package: github.com/coreos/go-iptables
   subpackages:
   - iptables
+- package: github.com/nlopes/slack

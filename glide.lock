@@ -1,5 +1,5 @@
-hash: d1f5a9e3a864912ee5eda2c9df5a88618d903a6fec17d68badaca018923e120f
-updated: 2017-02-09T10:30:22.832795071+08:00
+hash: 2e67d7e562a040b3ba2c30536736216ee3479deae2390c8496e7cbfe15564748
+updated: 2017-02-18T13:12:25.695764929+08:00
 imports:
 - name: github.com/asaskevich/govalidator
   version: 7b3beb6df3c42abd3509abfc3bcacc0fbfb7c877
@@ -18,6 +18,8 @@ imports:
   - internal/nethttp
   - internal/nethttp/rule
   - internal/server
+- name: github.com/go-sql-driver/mysql
+  version: 2e00b5cd70399450106cec6431c2e2ce3cae5034
 - name: github.com/golang/protobuf
   version: 8ee79997227bf9b34611aee7946ae64735e6fd93
   subpackages:
@@ -48,6 +50,7 @@ imports:
 - name: github.com/jinzhu/gorm
   version: 23abd03a95a16de0ef2d559979ead26b2a3cce66
   subpackages:
+  - dialects/mysql
   - dialects/sqlite
 - name: github.com/jinzhu/inflection
   version: 1c35d901db3da928c72a72d8458480cc9ade058f
@@ -94,6 +97,8 @@ imports:
   version: e79763773ab6222ca1d5a7cbd9d62d83c1f77081
 - name: github.com/miekg/dns
   version: b6ecf29d9812d2c4a8c200dd736d275bb74b981e
+- name: github.com/nlopes/slack
+  version: 6519657c021b7add19c4ef48220140cca0b1657b
 - name: github.com/russross/blackfriday
   version: 5f33e7b7878355cd2b7e6b8eefc48a5472c69f70
 - name: github.com/satori/go.uuid
@@ -134,6 +139,7 @@ imports:
   - lex/httplex
   - publicsuffix
   - trace
+  - websocket
 - name: golang.org/x/sys
   version: 7a6e5648d140666db5d920909e082ca00a87ba2c
   subpackages:
