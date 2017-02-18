@@ -43,7 +43,8 @@ sudo apt install shadowsocks-libev
 To install it completely (binaries and systemd services), 
 
 ```bash
-# Install to /usr/local/ssmgr/*, /etc/default/ssmgr.{master/slave} and /lib/systemd/system/ssmgr-{master/slave}.service
+# Install to /usr/local/ssmgr/*, /etc/default/ssmgr.{master/slave}, 
+# /lib/systemd/system/ssmgr-{master/slave}.service and /etc/ssmgr/*
 sudo make install
 ```
 
