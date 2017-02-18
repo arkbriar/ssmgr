@@ -266,7 +266,7 @@ func readDirNames(dirname string) ([]string, error) {
 
 func (mgr *manager) restore(s *Server, serverPath string) error {
 	if !validPort(s.Port) {
-		log.Warn("Invalid port.")
+		log.Warn("Invalid port")
 	}
 
 	s = mgr.prepareServer(s)
@@ -289,7 +289,7 @@ func (mgr *manager) restore(s *Server, serverPath string) error {
 		return err
 	}
 
-	log.Infof("Server(%s) restored.", s)
+	log.Infof("Server(%s) restored", s)
 
 	return nil
 }
@@ -312,18 +312,18 @@ func (mgr *manager) Restore() error {
 		serverPath := path.Join(mgr.path, name)
 		if isDir(serverPath) {
 			if port, ok := getPort(name); ok {
-				log.Infof("Restoring server(%d) ...", port)
+				log.Infof("Restoring server(%d)", port)
 
 				err := mgr.restore(&Server{Port: port}, serverPath)
 				if err != nil {
-					log.Warnf("Can not restore server(%d), %s, remove it.", port, err)
+					log.Warnf("Can not restore server(%d), %s. Remove it", port, err)
 					os.RemoveAll(serverPath)
 				}
 			} else {
-				log.Warnf("Ignore unrecognized port %s.", name)
+				log.Warnf("Ignore unrecognized port %s", name)
 			}
 		} else {
-			log.Warnf("Ignore normal file %s.", serverPath)
+			log.Warnf("Ignore normal file %s", serverPath)
 		}
 	}
 	return nil
@@ -341,5 +341,5 @@ func (mgr *manager) CleanUp() {
 		mgr.Remove(p)
 	}
 
-	log.Infof("Clean up all managed servers.")
+	log.Infof("Clean up all managed servers")
 }

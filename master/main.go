@@ -118,7 +118,7 @@ func main() {
 		if err != nil {
 			logrus.Warnf("Can not parse levels: %s", err)
 
-			logrus.Warnf("Slack hook is not working.")
+			logrus.Warnf("Slack hook is not working")
 		} else {
 			logrus.AddHook((&slack.SlackrusHook{
 				Channel:        config.Slack.Channel,

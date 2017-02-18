@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	caFile = flag.String("ca", "", "Path of CA X.509(.pem) file (enable TLS when specified).")
+	caFile = flag.String("ca", "", "Path of CA X.509(.pem) file (enable TLS when specified)")
 )
 
 type Slave struct {
@@ -45,6 +45,7 @@ func InitSlaves() {
 				opts = append(opts, grpc.WithInsecure())
 			} else {
 				opts = append(opts, grpc.WithTransportCredentials(creds))
+				logrus.Info("Encrypting grpc channel with TLS")
 			}
 		} else {
 			opts = append(opts, grpc.WithInsecure())

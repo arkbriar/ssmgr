@@ -84,7 +84,7 @@ func run(ctx context.Context) error {
 
 	mgr := ss.NewManager(conf.MgrPort)
 	if err := mgr.Listen(context.Background()); err != nil {
-		return fmt.Errorf("Can not listen udp address 127.0.0.1:%d, %s", conf.MgrPort, err)
+		return err
 	}
 
 	token := conf.Token
@@ -132,7 +132,7 @@ func run(ctx context.Context) error {
 		s.GracefulStop()
 		mgr.CleanUp()
 
-		log.Info("Graceful shutdown.")
+		log.Info("Graceful shutdown")
 
 	case err := <-errc:
 		return err

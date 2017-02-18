@@ -22,7 +22,7 @@ func addServers(mgr ss.Manager, ports ...int32) {
 		err := mgr.Add(s)
 		if err != nil {
 			if err == ss.ErrServerExists {
-				log.Warnf("Server(%d) already exsits.", port)
+				log.Warnf("Server(%d) already exsits", port)
 			} else {
 				log.Panicf("Can not create a new ss server, %s", err)
 			}
@@ -57,7 +57,7 @@ func contextMain(ctx context.Context) {
 		log.Panicln(err)
 	}
 	log.Info("Running ss servers: ", mgr.ListServers())
-	log.Info("Waiting for 2s ...")
+	log.Info("Waiting for 2s")
 	select {
 	case <-ctx.Done():
 	case <-time.After(2 * time.Second):
@@ -67,7 +67,7 @@ func contextMain(ctx context.Context) {
 		}
 		time.Sleep(100 * time.Millisecond)
 		if s.Alive() {
-			log.Debugf("Server is not supposed to be alive after remove action.")
+			log.Debugf("Server is not supposed to be alive after remove action")
 
 		}
 	}

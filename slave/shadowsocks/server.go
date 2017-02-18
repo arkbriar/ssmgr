@@ -29,18 +29,18 @@ var (
 
 func init() {
 	if _, err := exec.LookPath("ss-server"); err != nil {
-		log.Fatalf("Can not find ss-server in $PATH. Install it.")
+		log.Fatalf("Can not find ss-server in $PATH. Install it")
 	}
 
 	// initialize ipt and warn unsupported
 	if runtime.GOOS != "linux" {
-		log.Warnf("Connection limit and auto ban is not supported on non-linux system.")
+		log.Warnf("Connection limit and auto ban is not supported on non-linux system")
 	} else {
 		usr, _ = user.Current()
 		if usr.Name == "root" {
 			ipt, _ = iptables.New()
 		} else {
-			log.Warnf("Connection limit and auto ban is only supported when running with root.")
+			log.Warnf("Connection limit and auto ban is only supported when running with root")
 		}
 	}
 }
@@ -319,14 +319,14 @@ func (s *Server) startWatchDaemon() error {
 				return
 			case <-time.After(5 * time.Second):
 				if !s.Alive() {
-					log.Warnf("Server(%s) is detected dead.", s)
+					log.Warnf("Server(%s) is detected dead", s)
 
 					if err := s.revive(); err != nil {
 						if err != errServerAlive {
 							log.Warnf("Can not restart server(%s), %s", s, err)
 						}
 					} else {
-						log.Infof("Server(%s) is back to work.", s)
+						log.Infof("Server(%s) is back to work", s)
 					}
 				}
 			}
@@ -640,7 +640,7 @@ func (s *Server) restoreRuntime(runPath string) error {
 	}
 	if !s.runtime.alive() {
 		s.runtime = nil
-		log.Debugf("Recovered process is not alive, reset runtime.")
+		log.Debugf("Recovered process is not alive, reset runtime")
 	}
 	return nil
 }
