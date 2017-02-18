@@ -56,7 +56,8 @@ install-master: check-install ${MASTER_BIN}
 	mkdir -p /usr/local/ssmgr/bin
 	mkdir -p /etc/ssmgr
 	cp config.master.json /etc/ssmgr/
-	cp build/master /usr/local/ssmgr/bin
+	cp -R frontend /etc/ssmgr/frontend
+	cp build/master /usr/local/ssmgr/bin/
 	cp systemd/ssmgr.master /etc/default/
 	cp systemd/ssmgr-master.service /lib/systemd/system/
 
@@ -64,7 +65,6 @@ install-slave: check-install ${SLAVE_BIN}
 	mkdir -p /usr/local/ssmgr/bin
 	mkdir -p /etc/ssmgr
 	cp config.slave.json /etc/ssmgr/
-	cp -R frontend /etc/ssmgr/frontend
 	cp build/slave /usr/local/ssmgr/bin/
 	cp systemd/ssmgr.slave /etc/default/
 	cp systemd/ssmgr-slave.service /lib/systemd/system/
