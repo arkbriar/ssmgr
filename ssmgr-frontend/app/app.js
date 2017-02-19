@@ -1,13 +1,9 @@
 'use strict';
 
 // Declare app level module which depends on views, and components
-angular.module('myApp', [
+angular.module('ssmgr', [
   'ngRoute',
-
-  'hello',
-  'about',
-  'user',
-  'manager'
+  'ssmgr.view'
 ]).
 config(['$locationProvider', '$routeProvider', function($locationProvider, $routeProvider) {
   $locationProvider.hashPrefix('!');

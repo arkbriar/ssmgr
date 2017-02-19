@@ -1,3 +1,5 @@
 'use strict';
 
-angular.module('user', ['ngMaterial', 'ngMessages', 'user.nav', 'user.login']);
+angular.module('ssmgr.component.user', [
+  'ngMaterial'
+]);
