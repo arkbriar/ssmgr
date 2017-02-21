@@ -1,10 +1,32 @@
-<div ng-controller="userCtrl" layout="column" ng-cloak>
+<div ng-controller="userCtrl" layout="column" flex>
+  <div layout="row" flex>
 
-  <md-sidenav
-    class=md-sidenav-left"
-    md-component-id="user-nav"
-    md-is-locked-open="$mdMedia('gt-md')"
-    md-whiteframe="4">
-  </md-sidenav>
+    <md-sidenav class="md-sidenav-left" md-component-id="user-nav"
+                md-is-locked-open="true" md-whiteframe="8">
+
+      <header class="nav-header">
+        <h1 class="md-heading" style="text-align: center">SSMGR</h1>
+      </header>
+
+      <md-content flex role="navigation">
+        <ul class="user-menu">
+          <!--TODO(arkbriar@gmail.com) menu.sections should be stored in $scope-->
+          <li class="parent-list-item">
+            <menu-link section="section">
+              <a class="md-button md-ink-ripple" ng-transclude>
+                <span class="ng-binding">
+                  Example
+                </span>
+              </a>
+            </menu-link>
+          </li>
+        </ul>
+      </md-content>
+    </md-sidenav>
+
+    <md-content flex>
+      Content
+    </md-content>
+  </div>
 
 </div>
