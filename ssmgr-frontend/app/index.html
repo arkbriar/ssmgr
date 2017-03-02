@@ -6,22 +6,55 @@
 <head>
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <title>SSMGR</title>
-  <meta name="description" content="">
+  <title>Shadowsocks</title>
+
+  <meta name="description" content="Shadowsocks Manager of Multiple Servers">
+
   <meta name="viewport" content="width=device-width, initial-scale=1">
+
   <link rel="stylesheet" href="bower_components/html5-boilerplate/dist/css/normalize.css">
   <link rel="stylesheet" href="bower_components/html5-boilerplate/dist/css/main.css">
   <script src="bower_components/html5-boilerplate/dist/js/vendor/modernizr-2.8.3.min.js"></script>
   <link rel="stylesheet" href="bower_components/angular-material/angular-material.css">
   <link rel="stylesheet" href="app.css">
 </head>
-<body ng-app="ssmgr" layout="column">
+<body ng-app="ssmgr" ng-controller="MainCtrl" layout="column" ng-cloak>
 
   <!--[if lt IE 7]>
       <p class="browsehappy">You are using an <strong>outdated</strong> browser. Please <a href="http://browsehappy.com/">upgrade your browser</a> to improve your experience.</p>
   <![endif]-->
 
-  <div ng-view layout="column" flex></div>
+  <md-toolbar layout="row" flex class="toolbar" id="ssmgr-toolbar" md-whiteframe="4">
+    <img src="statics/img/shadowsocks.png" class="page-logo">
+
+    <div class="md-padding" layout="row" layout-align="end" flex>
+      <md-nav-bar md-selected-nav-item="currentNavItem"
+                  nav-bar-aria-label="navigation links">
+        <md-nav-item ng-repeat="item in navItems"
+                     md-nav-click="changeView(item)" name="{{item}}">
+          {{item.toUpperCase()}}
+        </md-nav-item>
+      </md-nav-bar>
+
+      <md-button aria-label="sign-in-button" class="md-raised md-warn" ng-click="goto('login')">SIGN IN</md-button>
+    </div>
+
+  </md-toolbar>
+
+
+  <md-content flex md-scroll-y layout="column">
+    <div ng-view flex="noshrink" layout-padding></div>
+
+    <div layout="row" flex="noshrink" layout-align="center center">
+      <div id="license-footer" flex>
+        Powered by
+        <a href="https://github.com/arkbriar" class="md-accent">Arkbriar</a> and
+        <a href="https://github.com/ericfu" class="md-accent">EricFu</a>
+        &copy;2016&#8211;{{thisYear}}.
+        Code licensed under the <a ng-href="https://www.gnu.org/licenses/gpl-3.0.en.html"  class="md-accent">GPLv3 License</a>.
+      </div>
+    </div>
+  </md-content>
 
   <!-- In production use:
   <script src="//ajax.googleapis.com/ajax/libs/angularjs/x.x.x/angular.min.js"></script>
@@ -32,8 +65,13 @@
   <script src="bower_components/angular-aria/angular-aria.js"></script>
   <script src="bower_components/angular-material/angular-material.js"></script>
   <script src="app.js"></script>
-  <script src="views/view.module.js"></script>
-  <script src="views/user/user.js"></script>
+
+  <!--scripts of views-->
+  <script src="home/home.js"></script>
+  <script src="user/user.js"></script>
+  <script src="admin/admin.js"></script>
+  <script src="pricing/pricing.js"></script>
+  <script src="about/about.js"></script>
 
 </body>
 </html>

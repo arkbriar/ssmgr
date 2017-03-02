@@ -1,0 +1,15 @@
+<md-content ng-controller="PricingCtrl" layout="row" layout-align="center end">
+
+  <md-card ng-repeat="product in products" style="height: {{product.height}}px" flex="25">
+    <md-card-content layout="column" layout-align="end" style="height: 100%">
+      <div flex>
+        <h2>{{product.price}}</h2>
+        <p>{{product.details}}</p>
+      </div>
+
+      <md-button class="md-accent" aria-label="order-{{product.price}}">
+        ORDER IT!
+      </md-button>
+    </md-card-content>
+  </md-card>
+</md-content>

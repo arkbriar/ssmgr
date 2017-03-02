@@ -1,0 +1,41 @@
+<md-content ng-controller="HomeCtrl" layout="column" flex>
+
+  <div class="ssmgr-home-background" layout="column" layout-align="start center">
+    <br/>
+    <p> This is Shadowsocks logo.</p>
+    <p> And other paragraphs.</p>
+    <br/>
+  </div>
+
+  <md-content flex>
+    <div class="ssmgr-home-advantages" layout="row" layout-align="center">
+      <div class="ssmgr-home-adv-cards" layout="row" layout-align="space-around" flex="70">
+        <md-card ng-repeat="idx in [1, 2, 3]" flex="25">
+          <md-card-content>
+            <h2>Head {{idx}}</h2>
+            <p>Content {{idx}}</p>
+          </md-card-content>
+        </md-card>
+      </div>
+    </div>
+
+    <br/>
+
+
+    <form layout="row" layout-align="center" layout-padding>
+      <div layout="row" flex="35" layout-align="center">
+        <md-input-container aria-label="try-out-input" flex>
+          <label>Email</label>
+          <input type="text">
+        </md-input-container>
+        <div>
+          <md-button class="md-raised md-accent" aria-label="try-out-button">
+            Try it!
+          </md-button>
+        </div>
+      </div>
+    </form>
+  </md-content>
+
+
+</md-content>
