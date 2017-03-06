@@ -1,15 +1,30 @@
-<md-content ng-controller="PricingCtrl" layout="row" layout-align="center end">
+<br />
 
-  <md-card ng-repeat="product in products" style="height: {{product.height}}px" flex="25">
-    <md-card-content layout="column" layout-align="end" style="height: 100%">
-      <div flex>
-        <h2>{{product.price}}</h2>
-        <p>{{product.details}}</p>
-      </div>
+<p style="text-align: center;">
+  Here's the pricing page.
+</p>
 
-      <md-button class="md-accent" aria-label="order-{{product.price}}">
-        ORDER IT!
-      </md-button>
-    </md-card-content>
-  </md-card>
+<br />
+
+<md-content layout="row" layout-align="center center">
+
+  <div layout="column" flex="100">
+    <div layout="row" layout-align="center end" flex="100">
+
+      <md-card ng-repeat="product in products" style="height: {{product.height}}px;" flex="25">
+        <md-card-content  class="pricing-card" layout="column" layout-align="end" style="height: 100%">
+          <div flex>
+            <h2>{{product.price}}</h2>
+            <p>{{product.details}}</p>
+          </div>
+
+          <md-button class="md-accent" aria-label="order-{{product.price}}">
+            ORDER IT!
+          </md-button>
+        </md-card-content>
+      </md-card>
+
+    </div>
+  </div>
+
 </md-content>

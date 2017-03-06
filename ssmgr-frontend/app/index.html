@@ -41,20 +41,7 @@
 
   </md-toolbar>
 
-
-  <md-content flex md-scroll-y layout="column">
-    <div ng-view flex="noshrink" layout-padding></div>
-
-    <div layout="row" flex="noshrink" layout-align="center center">
-      <div id="license-footer" flex>
-        Powered by
-        <a href="https://github.com/arkbriar" class="md-accent">Arkbriar</a> and
-        <a href="https://github.com/ericfu" class="md-accent">EricFu</a>
-        &copy;2016&#8211;{{thisYear}}.
-        Code licensed under the <a ng-href="https://www.gnu.org/licenses/gpl-3.0.en.html"  class="md-accent">GPLv3 License</a>.
-      </div>
-    </div>
-  </md-content>
+  <div ng-view flex md-scroll-y></div>
 
   <!-- In production use:
   <script src="//ajax.googleapis.com/ajax/libs/angularjs/x.x.x/angular.min.js"></script>

@@ -1,0 +1,70 @@
+<div layout="column" style="min-height: 100%">
+
+  <div layout="row" flex="100">
+
+    <md-sidenav class="user-sidenav md-sidenav-left" md-is-locked-open="true" md-whiteframe="2">
+      <p style="text-align: center">Here's sidenav.</p>
+    </md-sidenav>
+
+
+    <md-content flex layout="row" layout-padding>
+      <div layout="column" flex="80">
+        <div flex="nogrow" ng-repeat="row in server_rows" layout="row" layout-align="center stretch">
+          <md-card ng-repeat="server in row" flex="{{server_card_flex}}">
+            <!--<md-card-header>-->
+            <!--<md-card-avatar>-->
+            <!--<img class="md-user-avatar" src="avatar.png">-->
+            <!--</md-card-avatar>-->
+            <!--<md-card-header-text>-->
+            <!--<span class="md-title">Title</span>-->
+            <!--<span class="md-subhead">Sub header</span>-->
+            <!--</md-card-header-text>-->
+            <!--</md-card-header>-->
+            <img ng-src="card-image.png" class="md-card-image" alt="image caption">
+            <md-card-title>
+              <md-card-title-text>
+                <span class="md-headline"> {{server.id}}</span>
+                <span class="md-subhead"> address: {{server.address}}</span>
+                <span class="md-subhead"> port: {{server.port}}</span>
+                <span class="md-subhead"> password: {{server.password}}</span>
+              </md-card-title-text>
+            </md-card-title>
+
+            <!--<md-card-content>-->
+            <!--A: {{server.address + ":" + server.port}} <br />-->
+            <!--P: {{server.password}} <br />-->
+            <!--L: {{server.id}} <br />-->
+
+            <!--<br />-->
+            <!--</md-card-content>-->
+
+            <md-card-actions layout="row" layout-align="start center">
+              <md-button>Show QR</md-button>
+              <md-card-icon-actions>
+                <md-button class="md-icon-button" aria-label="icon">
+                  <md-icon md-svg-icon="icon"></md-icon>
+                </md-button>
+              </md-card-icon-actions>
+            </md-card-actions>
+          </md-card>
+        </div>
+      </div>
+
+      <md-divider></md-divider>
+
+      <div layout="column">
+        <div>Filter options:</div>
+
+        <br/>
+        <div class="server-filter" flex layout="column">
+          <md-checkbox aria-label="Test checkbox">
+            Test Check
+          </md-checkbox>
+        </div>
+      </div>
+
+    </md-content>
+
+  </div>
+
+</div>

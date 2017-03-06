@@ -1,19 +1,33 @@
 /* app css stylesheet */
 
-html {}
+html {
+}
 
 .toolbar {
-  max-height: 64px;
+    max-height: 64px;
 }
 
 .page-logo {
-  max-height: 64px;
+    max-height: 64px;
 }
 
 #license-footer {
-  width: 100%;
-  font-size: small;
-  text-align: center;
+    width: 100%;
+    font-size: small;
+    text-align: center;
+}
+
+.user-sidenav {
+    width: 272px;
+    min-width: 272px;
+    max-width: 272px;
+}
+
+.pricing-card:hover {
+    z-index: 1000;
+    box-shadow: rgba(0, 0, 0, 0.3) 0 4px 4px 0;
+    -webkit-box-shadow: rgba(0, 0, 0, 0.3) 0 4px 4px 0;
+    -moz-box-shadow: rgba(0, 0, 0, 0.3) 0 4px 4px 0;
 }
 
 /* ANIMATIONS
@@ -22,39 +36,66 @@ html {}
 /* leaving animations ----------------------------------------- */
 /* rotate and fall */
 @keyframes rotateFall {
-  0%      { transform: rotateZ(0deg); }
-  20%     { transform: rotateZ(10deg); animation-timing-function: ease-out; }
-  40%     { transform: rotateZ(17deg); }
-  60%     { transform: rotateZ(16deg); }
-  100%    { transform: translateY(100%) rotateZ(17deg); }
+    0% {
+        transform: rotateZ(0deg);
+    }
+    20% {
+        transform: rotateZ(10deg);
+        animation-timing-function: ease-out;
+    }
+    40% {
+        transform: rotateZ(17deg);
+    }
+    60% {
+        transform: rotateZ(16deg);
+    }
+    100% {
+        transform: translateY(100%) rotateZ(17deg);
+    }
 }
 
 /* slide in from the bottom */
 @keyframes slideOutLeft {
-  to      { transform: translateX(-100%); }
+    to {
+        transform: translateX(-100%);
+    }
 }
 
 /* rotate out newspaper */
 @keyframes rotateOutNewspaper {
-  to      { transform: translateZ(-3000px) rotateZ(360deg); opacity: 0; }
+    to {
+        transform: translateZ(-3000px) rotateZ(360deg);
+        opacity: 0;
+    }
 }
 
 /* entering animations --------------------------------------- */
 /* scale up */
 @keyframes scaleUp {
-  from    { opacity: 0.3; -webkit-transform: scale(0.8); }
+    from {
+        opacity: 0.3;
+        -webkit-transform: scale(0.8);
+    }
 }
 
 /* slide in from the right */
 @keyframes slideInRight {
-  from    { transform:translateX(100%); }
-  to      { transform: translateX(0); }
+    from {
+        transform: translateX(100%);
+    }
+    to {
+        transform: translateX(0);
+    }
 }
 
 /* slide in from the bottom */
 @keyframes slideInUp {
-  from    { transform:translateY(100%); }
-  to      { transform: translateY(0); }
+    from {
+        transform: translateY(100%);
+    }
+    to {
+        transform: translateY(0);
+    }
 }
 
 /*.ng-enter {
