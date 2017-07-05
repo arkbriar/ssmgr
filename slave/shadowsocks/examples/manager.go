@@ -22,7 +22,7 @@ func addServers(mgr ss.Manager, ports ...int32) {
 		err := mgr.Add(s)
 		if err != nil {
 			if err == ss.ErrServerExists {
-				log.Warnf("Server(%d) already exsits", port)
+				log.Warnf("Server(%d) already exists", port)
 			} else {
 				log.Panicf("Can not create a new ss server, %s", err)
 			}

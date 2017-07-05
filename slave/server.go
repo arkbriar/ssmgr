@@ -12,7 +12,7 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-type slaveServer struct {
+type server struct {
 	proto.SSMgrSlaveServer
 
 	token string
@@ -21,7 +21,7 @@ type slaveServer struct {
 
 // NewSSMgrSlaveServer creates a SSMgrSlaveServer.
 func NewSSMgrSlaveServer(token string, mgr ss.Manager) proto.SSMgrSlaveServer {
-	return &slaveServer{
+	return &server{
 		token: token,
 		mgr:   mgr,
 	}
@@ -57,8 +57,8 @@ func UnaryAuthInterceptor(token string) grpc.UnaryServerInterceptor {
 	}
 }
 
-func (s *slaveServer) Allocate(ctx context.Context, r *proto.AllocateRequest) (*google_protobuf.Empty, error) {
-	ss := &ss.Server{
+func (s *server) Allocate(ctx context.Context, r *proto.AllocateRequest) (*google_protobuf.Empty, error) {
+	server := &ss.Server{
 		Host:     "0.0.0.0",
 		Port:     r.GetPort(),
 		Password: r.GetPassword(),
@@ -68,23 +68,23 @@ func (s *slaveServer) Allocate(ctx context.Context, r *proto.AllocateRequest) (*
 
 	log.Debugf("Recv allocate request: %v", r)
 
-	return &google_protobuf.Empty{}, s.mgr.Add(ss)
+	return &google_protobuf.Empty{}, s.mgr.Add(server)
 }
 
-func (s *slaveServer) Free(ctx context.Context, r *proto.FreeRequest) (*google_protobuf.Empty, error) {
+func (s *server) Free(ctx context.Context, r *proto.FreeRequest) (*google_protobuf.Empty, error) {
 	log.Debugf("Recv free request: %v", r)
 
 	return &google_protobuf.Empty{}, s.mgr.Remove(r.GetPort())
 }
 
-func (s *slaveServer) GetStats(ctx context.Context, _ *google_protobuf.Empty) (*proto.Statistics, error) {
+func (s *server) GetStats(ctx context.Context, _ *google_protobuf.Empty) (*proto.Statistics, error) {
 	log.Debugf("Recv get stat request")
 
 	flow := make(map[int32]*proto.FlowUnit)
-	for port, ss := range s.mgr.ListServers() {
+	for port, server := range s.mgr.ListServers() {
 		flow[port] = &proto.FlowUnit{
-			Traffic:   ss.GetStat().Traffic,
-			StartTime: ss.Extra.StartTime.UnixNano(),
+			Traffic:   server.GetStat().Traffic,
+			StartTime: server.Extra.StartTime.UnixNano(),
 		}
 	}
 
