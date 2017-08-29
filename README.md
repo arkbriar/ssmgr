@@ -29,7 +29,9 @@ Then,
 # Install protobuf go plugin
 go get -u github.com/golang/protobuf/protoc-gen-go
 # And make sure that protoc-gen-go is in 
-# your env $PATH so that protoc can find and use it
+# your env $PATH so that protoc can find and use it, such as
+
+# export PATH=$PATH:$(go env GOPATH)/bin
 
 make all
 ```
