@@ -1,10 +1,12 @@
 GO_SRC = $(shell find . -type f -name '*.go' -not -path "./vendor/*")
+GOPATH = $(shell go env GOPATH)
 FRONTEND_DIR = frontend
 PROTOCOL_GO_SRC = protocol/master_slave.pb.go
 PROTOCOL_PROTO_SRC = protocol/master_slave.proto
 SLAVE_BIN = build/slave
 MASTER_BIN = build/master
 WEBPACK_BIN = node_modules/.bin/webpack
+GLIDE_BIN = ${GOPATH}/bin/glide
 
 all: master slave
 
@@ -20,6 +22,9 @@ slave: ${SLAVE_BIN}
 
 ${WEBPACK_BIN}:
 	npm install --save-dev webpack
+
+${GLIDE_BIN}:
+	go get -u github.com/Masterminds/glide
 
 ${MASTER_BIN}: frontend vendor ${PROTOCOL_GO_SRC}
 	go build -o build/master github.com/arkbriar/ssmgr/master
@@ -90,7 +95,7 @@ docker:
 
 .PHONY: all frontend master slave format docker check-install install clean
 
-vendor: glide.lock glide.yaml
+vendor: ${GLIDE_BIN} glide.lock glide.yaml
 	glide install
 	go install github.com/arkbriar/ssmgr/vendor/github.com/mattn/go-sqlite3
 
