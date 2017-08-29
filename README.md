@@ -11,20 +11,26 @@ First of all, install the dependent tools.
 For mac users,
 
 ```bash
-brew install go node glide
-npm install -g webpack
+brew install go node protobuf
 ```
 
 For ubuntu/debian users, install golang toolchain (>=1.7) and
 
 ```bash
-sudo apt install nodejs-legacy npm 
-sudo npm install -g webpack
+sudo add-apt-repository ppa:maarten-fonville/protobuf
+curl -sL https://deb.nodesource.com/setup_8.x | sudo -E bash -
+sudo apt update
+sudo apt install nodejs protobuf-compiler
 ```
 
 Then,
 
 ```bash
+# Install protobuf go plugin
+go get -u github.com/golang/protobuf/protoc-gen-go
+# And make sure that protoc-gen-go is in 
+# your env $PATH so that protoc can find and use it
+
 make all
 ```
 
