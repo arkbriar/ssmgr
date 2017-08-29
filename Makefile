@@ -4,11 +4,12 @@ PROTOCOL_GO_SRC = protocol/master_slave.pb.go
 PROTOCOL_PROTO_SRC = protocol/master_slave.proto
 SLAVE_BIN = build/slave
 MASTER_BIN = build/master
+WEBPACK_BIN = node_modules/.bin/webpack
 
 all: master slave
 
-frontend: frontend/node_modules
-	cd frontend && webpack -p
+frontend: ${WEBPACK_BIN} frontend/node_modules
+	cd frontend && ${WEBPACK_BIN} -p
 
 frontend/node_modules: ${FRONTEND_DIR}/package.json
 	cd frontend && npm install
@@ -16,6 +17,9 @@ frontend/node_modules: ${FRONTEND_DIR}/package.json
 master: ${MASTER_BIN}
 
 slave: ${SLAVE_BIN}
+
+${WEBPACK_BIN}:
+	npm install --save-dev webpack
 
 ${MASTER_BIN}: frontend vendor ${PROTOCOL_GO_SRC}
 	go build -o build/master github.com/arkbriar/ssmgr/master
